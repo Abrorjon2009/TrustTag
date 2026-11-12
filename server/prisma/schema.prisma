@@ -1,0 +1,221 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id                     String         @id @default(uuid())
+  phoneNumber            String         @unique
+  email                  String?        @unique
+  fullName               String
+  avatarUrl              String?
+  isPhoneVerified        Boolean        @default(false)
+  successfulSalesCount   Int            @default(0)
+  successfulBuysCount    Int            @default(0)
+  unresolvedReportsCount Int            @default(0)
+  isBanned               Boolean        @default(false)
+  isAdmin                Boolean        @default(false)
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
+
+  productsListed         Product[]      @relation("SellerProducts")
+  buyerTrades            TradeSession[] @relation("BuyerTrades")
+  sellerTrades           TradeSession[] @relation("SellerTrades")
+  wallet                 Wallet?
+  chatMessages           ChatMessage[]
+  disputesReported       Dispute[]      @relation("ReporterDisputes")
+  disputesAccused        Dispute[]      @relation("AccusedDisputes")
+  reviewsGiven           Review[]       @relation("AuthorReviews")
+  reviewsReceived        Review[]       @relation("TargetReviews")
+}
+
+model GeoRegion {
+  id        Int           @id @default(autoincrement())
+  name      String        @unique
+  districts GeoDistrict[]
+  products  Product[]     @relation("ItemRegion")
+  reach     ProductDeliveryReach[]
+}
+
+model GeoDistrict {
+  id        Int           @id @default(autoincrement())
+  regionId  Int
+  name      String
+  region    GeoRegion     @relation(fields: [regionId], references: [id], onDelete: Cascade)
+  cities    GeoCity[]
+  products  Product[]     @relation("ItemDistrict")
+  reach     ProductDeliveryReach[]
+}
+
+model GeoCity {
+  id         Int           @id @default(autoincrement())
+  districtId Int
+  name       String
+  district   GeoDistrict   @relation(fields: [districtId], references: [id], onDelete: Cascade)
+  products   Product[]     @relation("ItemCity")
+  reach      ProductDeliveryReach[]
+}
+
+model Product {
+  id              String                 @id @default(uuid())
+  sellerId        String
+  seller          User                   @relation("SellerProducts", fields: [sellerId], references: [id])
+  title           String
+  description     String
+  category        String
+  subcategory     String
+  productType     String                 // 'ONLINE' | 'PHYSICAL'
+  condition       String?                // 'BRAND_NEW' | 'LIKE_NEW' | 'USED_GOOD' | 'USED_FAIR' | 'FOR_PARTS'
+  price           Float
+  pricingType     String                 @default("FIXED") // 'FIXED' | 'NEGOTIABLE' | 'TRADE_SWAP'
+  
+  showPhone       Boolean                @default(false)
+  showEmail       Boolean                @default(false)
+  
+  itemRegionId    Int?
+  itemDistrictId  Int?
+  itemCityId      Int?
+  itemRegion      GeoRegion?             @relation("ItemRegion", fields: [itemRegionId], references: [id])
+  itemDistrict    GeoDistrict?           @relation("ItemDistrict", fields: [itemDistrictId], references: [id])
+  itemCity        GeoCity?               @relation("ItemCity", fields: [itemCityId], references: [id])
+  
+  deliveryScope   String                 @default("CUSTOM") // 'WHOLE_COUNTRY' | 'CUSTOM' | 'ONLINE_ONLY'
+  deliveryPayer   String                 @default("NEGOTIABLE") // 'FREE_DELIVERY' | 'BUYER_PAYS' | 'NEGOTIABLE'
+  deliveryMethods String                 @default("[]") // JSON string array: ['MEETUP', 'COURIER', 'MAIL']
+  
+  status          String                 @default("AVAILABLE") // 'AVAILABLE' | 'RESERVED_IN_TRADE' | 'SOLD' | 'ARCHIVED'
+  images          String                 @default("[]") // JSON string array of image URLs
+  
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+
+  deliveryReach   ProductDeliveryReach[]
+  tradeSessions   TradeSession[]
+}
+
+model ProductDeliveryReach {
+  id               Int          @id @default(autoincrement())
+  productId        String
+  product          Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  regionId         Int?
+  districtId       Int?
+  cityId           Int?
+  isEntireRegion   Boolean      @default(false)
+  isEntireDistrict Boolean      @default(false)
+
+  region           GeoRegion?   @relation(fields: [regionId], references: [id])
+  district         GeoDistrict? @relation(fields: [districtId], references: [id])
+  city             GeoCity?     @relation(fields: [cityId], references: [id])
+}
+
+model Wallet {
+  id               String         @id @default(uuid())
+  userId           String         @unique
+  user             User           @relation(fields: [userId], references: [id])
+  availableBalance Float          @default(0.0)
+  safeHoldBalance  Float          @default(0.0)
+  frozenBalance    Float          @default(0.0)
+  version          Int            @default(0)
+  updatedAt        DateTime       @updatedAt
+
+  sourceEntries    LedgerEntry[]  @relation("SourceWallet")
+  destEntries      LedgerEntry[]  @relation("DestWallet")
+}
+
+model LedgerEntry {
+  id                  String        @id @default(uuid())
+  tradeSessionId      String?
+  sourceWalletId      String?
+  destWalletId        String?
+  sourceWallet        Wallet?       @relation("SourceWallet", fields: [sourceWalletId], references: [id])
+  destWallet          Wallet?       @relation("DestWallet", fields: [destWalletId], references: [id])
+  amount              Float
+  txType              String        // 'DEPOSIT_TOPUP' | 'ESCROW_LOCK' | 'ESCROW_RELEASE_PAYOUT' | 'ESCROW_REFUND_WITHDRAWAL' | 'FREEZE' | 'UNFREEZE'
+  idempotencyKey      String        @unique
+  notes               String?
+  createdAt           DateTime      @default(now())
+}
+
+model TradeSession {
+  id             String         @id @default(uuid())
+  productId      String
+  product        Product        @relation(fields: [productId], references: [id])
+  buyerId        String
+  buyer          User           @relation("BuyerTrades", fields: [buyerId], references: [id])
+  sellerId       String
+  seller         User           @relation("SellerTrades", fields: [sellerId], references: [id])
+  agreedPrice    Float
+  status         String         @default("NEGOTIATING") // 'NEGOTIATING' | 'MONEY_IN_SAFE_HOLD' | 'COMPLETED' | 'CANCELLED_WITHDRAWN' | 'UNDER_INVESTIGATION'
+
+  depositedAt    DateTime?
+  completedAt    DateTime?
+  withdrawnAt    DateTime?
+  disputedAt     DateTime?
+
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  chatMessages   ChatMessage[]
+  disputes       Dispute[]
+  review         Review?
+}
+
+model ChatMessage {
+  id             String         @id @default(uuid())
+  tradeSessionId String
+  tradeSession   TradeSession   @relation(fields: [tradeSessionId], references: [id], onDelete: Cascade)
+  senderId       String
+  sender         User           @relation(fields: [senderId], references: [id])
+  messageText    String
+  isSystemEvent  Boolean        @default(false)
+  systemEventType String?       // 'TERMS_AGREED', 'MONEY_DEPOSITED', 'PRODUCT_RECEIVED', 'MONEY_WITHDRAWN', 'REPORT_FILED'
+  createdAt      DateTime       @default(now())
+}
+
+model Dispute {
+  id             String            @id @default(uuid())
+  tradeSessionId String
+  tradeSession   TradeSession      @relation(fields: [tradeSessionId], references: [id])
+  reporterId     String
+  reporter       User              @relation("ReporterDisputes", fields: [reporterId], references: [id])
+  accusedId      String
+  accused        User              @relation("AccusedDisputes", fields: [accusedId], references: [id])
+  reasonCode     String
+  description    String
+  status         String            @default("OPEN_PENDING") // 'OPEN_PENDING' | 'INVESTIGATING' | 'RESOLVED_SELLER_PAID' | 'RESOLVED_BUYER_REFUNDED' | 'DISMISSED'
+  adminNotes     String?
+  resolvedBy     String?
+  resolvedAt     DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  evidence       DisputeEvidence[]
+}
+
+model DisputeEvidence {
+  id         String   @id @default(uuid())
+  disputeId  String
+  dispute    Dispute  @relation(fields: [disputeId], references: [id], onDelete: Cascade)
+  uploaderId String
+  fileUrl    String
+  fileType   String   // 'IMAGE' | 'PDF' | 'VIDEO'
+  createdAt  DateTime @default(now())
+}
+
+model Review {
+  id             String       @id @default(uuid())
+  tradeSessionId String       @unique
+  tradeSession   TradeSession @relation(fields: [tradeSessionId], references: [id])
+  authorId       String
+  author         User         @relation("AuthorReviews", fields: [authorId], references: [id])
+  targetUserId   String
+  targetUser     User         @relation("TargetReviews", fields: [targetUserId], references: [id])
+  rating         Int          // 1 to 5
+  comment        String?
+  createdAt      DateTime     @default(now())
+}
+

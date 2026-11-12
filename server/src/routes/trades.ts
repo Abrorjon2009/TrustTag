@@ -1,0 +1,557 @@
+import { Router } from 'express';
+import { prisma } from '../db';
+import { v4 as uuidv4 } from 'uuid';
+import { io } from '../index';
+
+const router = Router();
+const CENTRAL_VAULT_ID = '00000000-0000-0000-0000-000000000000';
+
+// Helper to compute live status banner packet
+export function getTradeBannerInfo(trade: any, currentUserId?: string) {
+  switch (trade.status) {
+    case 'NEGOTIATING':
+      return {
+        stage: 'STAGE_1_AGREEING',
+        color: 'gray',
+        badgeBg: '#F3F4F6',
+        badgeText: '#4B5563',
+        title: 'Agreeing on Terms',
+        message: 'No money deposited yet. Do not hand over the product.',
+        canDeposit: Boolean(currentUserId && trade.buyerId === currentUserId),
+        canConfirmReceived: false,
+        canWithdraw: false,
+        canReport: true,
+      };
+    case 'MONEY_IN_SAFE_HOLD':
+      return {
+        stage: 'STAGE_2_SAFE_HOLD',
+        color: 'green',
+        badgeBg: '#DEF7EC',
+        badgeText: '#03543F',
+        title: 'Money in Central Safe Account',
+        message: `Customer deposited $${trade.agreedPrice.toFixed(2)} into Central Account. Safe to deliver the product!`,
+        canDeposit: false,
+        canConfirmReceived: Boolean(currentUserId && trade.buyerId === currentUserId),
+        canWithdraw: Boolean(currentUserId && trade.buyerId === currentUserId),
+        canReport: true,
+      };
+    case 'COMPLETED':
+      return {
+        stage: 'STAGE_3A_COMPLETED',
+        color: 'blue',
+        badgeBg: '#E1EFFE',
+        badgeText: '#1E429F',
+        title: 'Trade Completed',
+        message: `Customer confirmed receipt. $${trade.agreedPrice.toFixed(2)} has been sent to the Seller.`,
+        canDeposit: false,
+        canConfirmReceived: false,
+        canWithdraw: false,
+        canReport: true,
+      };
+    case 'CANCELLED_WITHDRAWN':
+      return {
+        stage: 'STAGE_3B_WITHDRAWN',
+        color: 'yellow',
+        badgeBg: '#FEF08A',
+        badgeText: '#713F12',
+        title: 'Money Withdrawn (Trade Cancelled)',
+        message: 'Customer withdrew their money from the Central Account. DO NOT hand over the product!',
+        canDeposit: false,
+        canConfirmReceived: false,
+        canWithdraw: false,
+        canReport: true,
+      };
+    case 'UNDER_INVESTIGATION':
+      return {
+        stage: 'STAGE_4_INVESTIGATION',
+        color: 'red',
+        badgeBg: '#FDE8E8',
+        badgeText: '#9B1C1C',
+        title: 'Under Investigation',
+        message: 'A report has been filed on this trade. Safe-Hold funds are frozen while Admins investigate.',
+        canDeposit: false,
+        canConfirmReceived: false,
+        canWithdraw: false,
+        canReport: false,
+      };
+    default:
+      return {
+        stage: 'UNKNOWN',
+        color: 'gray',
+        badgeBg: '#F3F4F6',
+        badgeText: '#4B5563',
+        title: 'Unknown Status',
+        message: '',
+        canDeposit: false,
+        canConfirmReceived: false,
+        canWithdraw: false,
+        canReport: false,
+      };
+  }
+}
+
+// POST /api/trades/start - Initiate or resume a Safe Trade session
+router.post('/start', async (req, res) => {
+  try {
+    const { productId, buyerId, agreedPrice } = req.body;
+
+    if (!productId || !buyerId || agreedPrice === undefined) {
+      return res.status(400).json({ error: 'Missing required parameters' });
+    }
+
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+    });
+
+    if (!product) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    if (product.sellerId === buyerId) {
+      return res.status(400).json({ error: 'You cannot trade with your own product' });
+    }
+
+    // Check if an active trade session already exists between this buyer and product
+    let trade = await prisma.tradeSession.findFirst({
+      where: {
+        productId,
+        buyerId,
+        status: { in: ['NEGOTIATING', 'MONEY_IN_SAFE_HOLD', 'UNDER_INVESTIGATION'] },
+      },
+    });
+
+    if (!trade) {
+      // Create new session
+      trade = await prisma.tradeSession.create({
+        data: {
+          productId,
+          buyerId,
+          sellerId: product.sellerId,
+          agreedPrice: parseFloat(agreedPrice),
+          status: 'NEGOTIATING',
+        },
+      });
+
+      // System greeting message in chat
+      await prisma.chatMessage.create({
+        data: {
+          tradeSessionId: trade.id,
+          senderId: buyerId,
+          messageText: `Started Safe Trade for "${product.title}" at agreed price of $${parseFloat(agreedPrice).toFixed(2)}.`,
+          isSystemEvent: true,
+          systemEventType: 'TERMS_AGREED',
+        },
+      });
+    }
+
+    res.json(trade);
+  } catch (error) {
+    console.error('Error starting trade:', error);
+    res.status(500).json({ error: 'Failed to start trade session' });
+  }
+});
+
+// GET /api/trades/:id - Get trade session with banner state & chat history
+router.get('/:id', async (req, res) => {
+  try {
+    const { currentUserId } = req.query;
+    const trade = await prisma.tradeSession.findUnique({
+      where: { id: req.params.id },
+      include: {
+        product: {
+          include: {
+            itemCity: true,
+          },
+        },
+        buyer: {
+          select: {
+            id: true,
+            fullName: true,
+            avatarUrl: true,
+            isPhoneVerified: true,
+            phoneNumber: true,
+          },
+        },
+        seller: {
+          select: {
+            id: true,
+            fullName: true,
+            avatarUrl: true,
+            isPhoneVerified: true,
+            phoneNumber: true,
+            successfulSalesCount: true,
+          },
+        },
+        chatMessages: {
+          orderBy: { createdAt: 'asc' },
+          include: {
+            sender: {
+              select: {
+                id: true,
+                fullName: true,
+                avatarUrl: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!trade) {
+      return res.status(404).json({ error: 'Trade session not found' });
+    }
+
+    const banner = getTradeBannerInfo(trade, currentUserId as string);
+
+    res.json({
+      ...trade,
+      product: {
+        ...trade.product,
+        images: JSON.parse(trade.product.images || '[]'),
+      },
+      banner,
+    });
+  } catch (error) {
+    console.error('Error fetching trade:', error);
+    res.status(500).json({ error: 'Failed to fetch trade session' });
+  }
+});
+
+// GET /api/trades/user/:userId - List all trades for a user (as buyer or seller)
+router.get('/user/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const trades = await prisma.tradeSession.findMany({
+      where: {
+        OR: [{ buyerId: userId }, { sellerId: userId }],
+      },
+      include: {
+        product: true,
+        buyer: { select: { id: true, fullName: true, avatarUrl: true } },
+        seller: { select: { id: true, fullName: true, avatarUrl: true } },
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    const formatted = trades.map((t) => ({
+      ...t,
+      product: {
+        ...t.product,
+        images: JSON.parse(t.product.images || '[]'),
+      },
+      banner: getTradeBannerInfo(t, userId),
+    }));
+
+    res.json(formatted);
+  } catch (error) {
+    console.error('Error fetching user trades:', error);
+    res.status(500).json({ error: 'Failed to fetch user trades' });
+  }
+});
+
+// POST /api/trades/:id/deposit - Customer deposits agreed price into Central Account
+router.post('/:id/deposit', async (req, res) => {
+  try {
+    const { buyerId } = req.body;
+    const tradeId = req.params.id;
+
+    const trade = await prisma.tradeSession.findUnique({
+      where: { id: tradeId },
+      include: { product: true },
+    });
+
+    if (!trade) return res.status(404).json({ error: 'Trade not found' });
+    if (trade.buyerId !== buyerId) return res.status(403).json({ error: 'Only buyer can deposit funds' });
+    if (trade.status !== 'NEGOTIATING') {
+      return res.status(400).json({ error: `Cannot deposit in status ${trade.status}` });
+    }
+
+    const price = trade.agreedPrice;
+
+    // Execute atomic balance & state updates
+    await prisma.$transaction(async (tx) => {
+      // 1. Ensure buyer wallet exists with sufficient funds (auto top-up simulated if low)
+      let buyerWallet = await tx.wallet.findUnique({ where: { userId: buyerId } });
+      if (!buyerWallet) {
+        buyerWallet = await tx.wallet.create({
+          data: { userId: buyerId, availableBalance: price },
+        });
+      } else if (buyerWallet.availableBalance < price) {
+        // Auto-topup simulation so testing never gets stuck
+        buyerWallet = await tx.wallet.update({
+          where: { id: buyerWallet.id },
+          data: { availableBalance: price },
+        });
+      }
+
+      // Deduct from buyer
+      await tx.wallet.update({
+        where: { id: buyerWallet.id },
+        data: { availableBalance: { decrement: price } },
+      });
+
+      // 2. Credit to Central Vault safeHoldBalance
+      let vaultWallet = await tx.wallet.findUnique({ where: { userId: CENTRAL_VAULT_ID } });
+      if (!vaultWallet) {
+        vaultWallet = await tx.wallet.create({
+          data: { userId: CENTRAL_VAULT_ID, safeHoldBalance: price },
+        });
+      } else {
+        await tx.wallet.update({
+          where: { id: vaultWallet.id },
+          data: { safeHoldBalance: { increment: price } },
+        });
+      }
+
+      // 3. Record Ledger
+      await tx.ledgerEntry.create({
+        data: {
+          tradeSessionId: trade.id,
+          sourceWalletId: buyerWallet.id,
+          destWalletId: vaultWallet.id,
+          amount: price,
+          txType: 'ESCROW_LOCK',
+          idempotencyKey: `deposit_${trade.id}_${Date.now()}`,
+          notes: `Customer deposited $${price.toFixed(2)} to Central Safe Account for product ${trade.product.title}`,
+        },
+      });
+
+      // 4. Update Trade Session & Product Status
+      await tx.tradeSession.update({
+        where: { id: trade.id },
+        data: {
+          status: 'MONEY_IN_SAFE_HOLD',
+          depositedAt: new Date(),
+        },
+      });
+
+      await tx.product.update({
+        where: { id: trade.productId },
+        data: { status: 'RESERVED_IN_TRADE' },
+      });
+
+      // 5. Inject verified System Event into chat
+      await tx.chatMessage.create({
+        data: {
+          tradeSessionId: trade.id,
+          senderId: buyerId,
+          messageText: `🛡️ OFFICIAL SYSTEM NOTICE: Customer deposited $${price.toFixed(2)} into the Central Bank Account. The funds are safely secured. Seller is now cleared to deliver the item.`,
+          isSystemEvent: true,
+          systemEventType: 'MONEY_DEPOSITED',
+        },
+      });
+    });
+
+    // Notify via Socket.IO
+    if (io) {
+      io.to(`trade_${trade.id}`).emit('trade_status_updated', {
+        tradeId: trade.id,
+        newStatus: 'MONEY_IN_SAFE_HOLD',
+      });
+    }
+
+    res.json({ success: true, message: 'Funds secured in Central Account' });
+  } catch (error) {
+    console.error('Deposit error:', error);
+    res.status(500).json({ error: 'Failed to deposit into Central Safe Account' });
+  }
+});
+
+// POST /api/trades/:id/receive - Customer confirms "Product Received" -> releases money to seller
+router.post('/:id/receive', async (req, res) => {
+  try {
+    const { buyerId } = req.body;
+    const tradeId = req.params.id;
+
+    const trade = await prisma.tradeSession.findUnique({
+      where: { id: tradeId },
+      include: { product: true },
+    });
+
+    if (!trade) return res.status(404).json({ error: 'Trade not found' });
+    if (trade.buyerId !== buyerId) return res.status(403).json({ error: 'Only buyer can confirm receipt' });
+    if (trade.status !== 'MONEY_IN_SAFE_HOLD') {
+      return res.status(400).json({ error: `Cannot release funds in status ${trade.status}` });
+    }
+
+    const price = trade.agreedPrice;
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Deduct from Central Vault safeHoldBalance
+      const vaultWallet = await tx.wallet.findUnique({ where: { userId: CENTRAL_VAULT_ID } });
+      if (vaultWallet) {
+        await tx.wallet.update({
+          where: { id: vaultWallet.id },
+          data: { safeHoldBalance: { decrement: price } },
+        });
+      }
+
+      // 2. Credit to Seller availableBalance
+      let sellerWallet = await tx.wallet.findUnique({ where: { userId: trade.sellerId } });
+      if (!sellerWallet) {
+        sellerWallet = await tx.wallet.create({
+          data: { userId: trade.sellerId, availableBalance: price },
+        });
+      } else {
+        await tx.wallet.update({
+          where: { id: sellerWallet.id },
+          data: { availableBalance: { increment: price } },
+        });
+      }
+
+      // 3. Record Ledger
+      await tx.ledgerEntry.create({
+        data: {
+          tradeSessionId: trade.id,
+          sourceWalletId: vaultWallet?.id,
+          destWalletId: sellerWallet.id,
+          amount: price,
+          txType: 'ESCROW_RELEASE_PAYOUT',
+          idempotencyKey: `release_${trade.id}_${Date.now()}`,
+          notes: `Central Account disbursed $${price.toFixed(2)} to Seller following buyer receipt confirmation.`,
+        },
+      });
+
+      // 4. Update Trade Session & Product Status
+      await tx.tradeSession.update({
+        where: { id: trade.id },
+        data: {
+          status: 'COMPLETED',
+          completedAt: new Date(),
+        },
+      });
+
+      await tx.product.update({
+        where: { id: trade.productId },
+        data: { status: 'SOLD' },
+      });
+
+      // 5. Update user trust counters
+      await tx.user.update({
+        where: { id: trade.sellerId },
+        data: { successfulSalesCount: { increment: 1 } },
+      });
+      await tx.user.update({
+        where: { id: trade.buyerId },
+        data: { successfulBuysCount: { increment: 1 } },
+      });
+
+      // 6. System Message
+      await tx.chatMessage.create({
+        data: {
+          tradeSessionId: trade.id,
+          senderId: buyerId,
+          messageText: `🎉 OFFICIAL SYSTEM NOTICE: Customer confirmed product received! $${price.toFixed(2)} has been transferred from the Central Bank Account to Seller's balance. Trade is completed!`,
+          isSystemEvent: true,
+          systemEventType: 'PRODUCT_RECEIVED',
+        },
+      });
+    });
+
+    if (io) {
+      io.to(`trade_${trade.id}`).emit('trade_status_updated', {
+        tradeId: trade.id,
+        newStatus: 'COMPLETED',
+      });
+    }
+
+    res.json({ success: true, message: 'Trade successfully completed and money sent to Seller' });
+  } catch (error) {
+    console.error('Receive error:', error);
+    res.status(500).json({ error: 'Failed to process receipt confirmation' });
+  }
+});
+
+// POST /api/trades/:id/withdraw - Customer withdraws money from Central Account
+router.post('/:id/withdraw', async (req, res) => {
+  try {
+    const { buyerId } = req.body;
+    const tradeId = req.params.id;
+
+    const trade = await prisma.tradeSession.findUnique({
+      where: { id: tradeId },
+      include: { product: true },
+    });
+
+    if (!trade) return res.status(404).json({ error: 'Trade not found' });
+    if (trade.buyerId !== buyerId) return res.status(403).json({ error: 'Only buyer can withdraw funds' });
+    if (trade.status !== 'MONEY_IN_SAFE_HOLD') {
+      return res.status(400).json({ error: `Cannot withdraw funds in status ${trade.status}` });
+    }
+
+    const price = trade.agreedPrice;
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Deduct from Central Vault
+      const vaultWallet = await tx.wallet.findUnique({ where: { userId: CENTRAL_VAULT_ID } });
+      if (vaultWallet) {
+        await tx.wallet.update({
+          where: { id: vaultWallet.id },
+          data: { safeHoldBalance: { decrement: price } },
+        });
+      }
+
+      // 2. Refund back to Buyer
+      const buyerWallet = await tx.wallet.findUnique({ where: { userId: buyerId } });
+      if (buyerWallet) {
+        await tx.wallet.update({
+          where: { id: buyerWallet.id },
+          data: { availableBalance: { increment: price } },
+        });
+      }
+
+      // 3. Record Ledger
+      await tx.ledgerEntry.create({
+        data: {
+          tradeSessionId: trade.id,
+          sourceWalletId: vaultWallet?.id,
+          destWalletId: buyerWallet?.id,
+          amount: price,
+          txType: 'ESCROW_REFUND_WITHDRAWAL',
+          idempotencyKey: `withdraw_${trade.id}_${Date.now()}`,
+          notes: `Customer withdrew $${price.toFixed(2)} from Central Account back to wallet.`,
+        },
+      });
+
+      // 4. Update status & revert product
+      await tx.tradeSession.update({
+        where: { id: trade.id },
+        data: {
+          status: 'CANCELLED_WITHDRAWN',
+          withdrawnAt: new Date(),
+        },
+      });
+
+      await tx.product.update({
+        where: { id: trade.productId },
+        data: { status: 'AVAILABLE' },
+      });
+
+      // 5. System Message & Urgent Alert
+      await tx.chatMessage.create({
+        data: {
+          tradeSessionId: trade.id,
+          senderId: buyerId,
+          messageText: `⚠️ URGENT ALERT: Customer has withdrawn $${price.toFixed(2)} from the Central Safe Account! Trade cancelled — Seller DO NOT hand over or send the product!`,
+          isSystemEvent: true,
+          systemEventType: 'MONEY_WITHDRAWN',
+        },
+      });
+    });
+
+    if (io) {
+      io.to(`trade_${trade.id}`).emit('trade_status_updated', {
+        tradeId: trade.id,
+        newStatus: 'CANCELLED_WITHDRAWN',
+      });
+    }
+
+    res.json({ success: true, message: 'Money withdrawn back to Customer account' });
+  } catch (error) {
+    console.error('Withdraw error:', error);
+    res.status(500).json({ error: 'Failed to process withdrawal' });
+  }
+});
+
+export default router;
+

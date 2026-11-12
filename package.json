@@ -1,0 +1,15 @@
+{
+  "name": "safetrade-marketplace-monorepo",
+  "version": "1.0.0",
+  "description": "P2P Safe-Trading Marketplace with Central Bank Safe-Hold and Taobao-Inspired High Density UI",
+  "scripts": {
+    "dev:server": "cd server && npm run dev",
+    "dev:mobile": "cd mobile && npx expo start",
+    "web": "cd mobile && npx expo start --web",
+    "android": "cd mobile && npx expo start --android",
+    "build:android": "cd mobile && npx eas-cli build -p android --profile production"
+  },
+  "keywords": ["p2p-marketplace", "safe-trade", "escrow", "expo", "react-native", "taobao-ui"],
+  "author": "",
+  "license": "ISC"
+}
