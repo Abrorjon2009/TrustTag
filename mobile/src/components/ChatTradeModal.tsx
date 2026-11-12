@@ -17,6 +17,8 @@ import { TradeSession, ChatMessage } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { api, SOCKET_URL } from '../api/client';
 import { io, Socket } from 'socket.io-client';
+import { ConfirmModal } from './ConfirmModal';
+import { ReviewModal } from './ReviewModal';
 
 interface ChatTradeModalProps {
   tradeId: string | null;
@@ -37,6 +39,25 @@ export const ChatTradeModal: React.FC<ChatTradeModalProps> = ({
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isActionLoading, setIsActionLoading] = useState(false);
+
+  // Dialog & Review states
+  const [confirmConfig, setConfirmConfig] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+    confirmText: string;
+    type: 'primary' | 'success' | 'warning' | 'danger';
+    onConfirm: () => void;
+  }>({
+    visible: false,
+    title: '',
+    message: '',
+    confirmText: 'Confirm',
+    type: 'primary',
+    onConfirm: () => {},
+  });
+
+  const [reviewModalVisible, setReviewModalVisible] = useState(false);
 
   const socketRef = useRef<Socket | null>(null);
   const scrollViewRef = useRef<ScrollView | null>(null);
@@ -94,58 +115,72 @@ export const ChatTradeModal: React.FC<ChatTradeModalProps> = ({
   // Money Action 1: Deposit to Central Account
   const handleDeposit = () => {
     if (!trade || !currentUser) return;
-    const confirmed = confirm(
-      `Deposit $${trade.agreedPrice.toFixed(2)} into the Central Safe-Hold Account?\n\nThe funds will be securely held in the Central Bank until you receive and verify the item.`
-    );
-    if (!confirmed) return;
-
-    setIsActionLoading(true);
-    api
-      .depositTrade(trade.id, currentUser.id)
-      .then(() => {
-        alert('Funds safely held in Central Account! The seller has been cleared to deliver.');
-        loadTradeData();
-      })
-      .catch((err) => alert(`Deposit failed: ${err.message}`))
-      .finally(() => setIsActionLoading(false));
+    setConfirmConfig({
+      visible: true,
+      title: 'Deposit to Central Safe-Hold',
+      message: `Deposit $${trade.agreedPrice.toFixed(2)} into the Central Bank Account?\n\nFunds will be securely held in the Central Account until you receive and verify the item.`,
+      confirmText: 'Deposit Funds',
+      type: 'primary',
+      onConfirm: () => {
+        setConfirmConfig((prev) => ({ ...prev, visible: false }));
+        setIsActionLoading(true);
+        api
+          .depositTrade(trade.id, currentUser.id)
+          .then(() => {
+            loadTradeData();
+          })
+          .catch((err) => alert(`Deposit failed: ${err.message}`))
+          .finally(() => setIsActionLoading(false));
+      },
+    });
   };
 
   // Money Action 2: Product Received (Release to Seller)
   const handleProductReceived = () => {
     if (!trade || !currentUser) return;
-    const confirmed = confirm(
-      `Confirm Product Received?\n\nAre you sure you have received and inspected the item? This will IMMEDIATELY release $${trade.agreedPrice.toFixed(2)} from the Central Bank Account to the Seller.`
-    );
-    if (!confirmed) return;
-
-    setIsActionLoading(true);
-    api
-      .receiveTrade(trade.id, currentUser.id)
-      .then(() => {
-        alert('Payment released to Seller! Trade completed.');
-        loadTradeData();
-      })
-      .catch((err) => alert(`Confirmation failed: ${err.message}`))
-      .finally(() => setIsActionLoading(false));
+    setConfirmConfig({
+      visible: true,
+      title: 'Confirm Product Received',
+      message: `Are you sure you have received and inspected the item?\n\nThis will IMMEDIATELY release $${trade.agreedPrice.toFixed(2)} from the Central Bank Account to the Seller.`,
+      confirmText: 'Release Money to Seller',
+      type: 'success',
+      onConfirm: () => {
+        setConfirmConfig((prev) => ({ ...prev, visible: false }));
+        setIsActionLoading(true);
+        api
+          .receiveTrade(trade.id, currentUser.id)
+          .then(() => {
+            loadTradeData();
+            // Automatically prompt verified review
+            setTimeout(() => setReviewModalVisible(true), 600);
+          })
+          .catch((err) => alert(`Confirmation failed: ${err.message}`))
+          .finally(() => setIsActionLoading(false));
+      },
+    });
   };
 
   // Money Action 3: Withdraw Money
   const handleWithdrawMoney = () => {
     if (!trade || !currentUser) return;
-    const confirmed = confirm(
-      `Withdraw Money from Central Safe Account?\n\nThis will cancel the trade and immediately return $${trade.agreedPrice.toFixed(2)} back to your account. The seller will be alerted.`
-    );
-    if (!confirmed) return;
-
-    setIsActionLoading(true);
-    api
-      .withdrawTrade(trade.id, currentUser.id)
-      .then(() => {
-        alert('Money withdrawn back to your account. Trade cancelled.');
-        loadTradeData();
-      })
-      .catch((err) => alert(`Withdrawal failed: ${err.message}`))
-      .finally(() => setIsActionLoading(false));
+    setConfirmConfig({
+      visible: true,
+      title: 'Withdraw Money from Central Hold',
+      message: `Withdraw $${trade.agreedPrice.toFixed(2)} back to your account?\n\nThis will cancel the trade and return the money to your wallet. The seller will receive an urgent alert not to hand over the item.`,
+      confirmText: 'Withdraw Money',
+      type: 'warning',
+      onConfirm: () => {
+        setConfirmConfig((prev) => ({ ...prev, visible: false }));
+        setIsActionLoading(true);
+        api
+          .withdrawTrade(trade.id, currentUser.id)
+          .then(() => {
+            loadTradeData();
+          })
+          .catch((err) => alert(`Withdrawal failed: ${err.message}`))
+          .finally(() => setIsActionLoading(false));
+      },
+    });
   };
 
   if (!visible || !tradeId) return null;
@@ -372,6 +407,29 @@ export const ChatTradeModal: React.FC<ChatTradeModalProps> = ({
             </View>
           </>
         )}
+
+        {/* Universal Confirmation Modal */}
+        <ConfirmModal
+          visible={confirmConfig.visible}
+          title={confirmConfig.title}
+          message={confirmConfig.message}
+          confirmText={confirmConfig.confirmText}
+          type={confirmConfig.type}
+          onConfirm={confirmConfig.onConfirm}
+          onCancel={() => setConfirmConfig((prev) => ({ ...prev, visible: false }))}
+        />
+
+        {/* Verified Trade Review Modal */}
+        <ReviewModal
+          visible={reviewModalVisible}
+          tradeSessionId={trade?.id || null}
+          targetUserId={isBuyer ? (trade?.sellerId || null) : (trade?.buyerId || null)}
+          targetUserName={otherPartyName}
+          onClose={() => setReviewModalVisible(false)}
+          onReviewSubmitted={() => {
+            loadTradeData();
+          }}
+        />
       </View>
     </Modal>
   );

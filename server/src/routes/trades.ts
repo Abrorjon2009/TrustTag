@@ -340,6 +340,17 @@ router.post('/:id/deposit', async (req, res) => {
           systemEventType: 'MONEY_DEPOSITED',
         },
       });
+
+      // 6. Notify Seller
+      await tx.notification.create({
+        data: {
+          userId: trade.sellerId,
+          title: '🛡️ Safe-Hold Deposit Received!',
+          message: `Customer deposited $${price.toFixed(2)} into Central Account for "${trade.product.title}". Safe to deliver now!`,
+          type: 'TRADE_DEPOSIT',
+          linkId: trade.id,
+        },
+      });
     });
 
     // Notify via Socket.IO
@@ -446,6 +457,17 @@ router.post('/:id/receive', async (req, res) => {
           systemEventType: 'PRODUCT_RECEIVED',
         },
       });
+
+      // 7. Notification to Seller
+      await tx.notification.create({
+        data: {
+          userId: trade.sellerId,
+          title: '🎉 Product Received & Funds Released!',
+          message: `Customer confirmed receipt of "${trade.product.title}". $${price.toFixed(2)} has been credited to your available balance!`,
+          type: 'TRADE_RECEIVED',
+          linkId: trade.id,
+        },
+      });
     });
 
     if (io) {
@@ -535,6 +557,17 @@ router.post('/:id/withdraw', async (req, res) => {
           messageText: `⚠️ URGENT ALERT: Customer has withdrawn $${price.toFixed(2)} from the Central Safe Account! Trade cancelled — Seller DO NOT hand over or send the product!`,
           isSystemEvent: true,
           systemEventType: 'MONEY_WITHDRAWN',
+        },
+      });
+
+      // 6. Urgent Push Notification to Seller
+      await tx.notification.create({
+        data: {
+          userId: trade.sellerId,
+          title: '⚠️ URGENT: Customer Withdrew Money!',
+          message: `Customer withdrew $${price.toFixed(2)} from Central Account for "${trade.product.title}". Trade cancelled — DO NOT hand over or send the product!`,
+          type: 'TRADE_WITHDRAWN',
+          linkId: trade.id,
         },
       });
     });

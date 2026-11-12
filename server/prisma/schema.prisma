@@ -31,6 +31,8 @@ model User {
   disputesAccused        Dispute[]      @relation("AccusedDisputes")
   reviewsGiven           Review[]       @relation("AuthorReviews")
   reviewsReceived        Review[]       @relation("TargetReviews")
+  favorites              Favorite[]
+  notifications          Notification[]
 }
 
 model GeoRegion {
@@ -95,6 +97,7 @@ model Product {
 
   deliveryReach   ProductDeliveryReach[]
   tradeSessions   TradeSession[]
+  favorites       Favorite[]
 }
 
 model ProductDeliveryReach {
@@ -218,4 +221,28 @@ model Review {
   comment        String?
   createdAt      DateTime     @default(now())
 }
+
+model Favorite {
+  id        String   @id @default(uuid())
+  userId    String
+  productId String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, productId])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  type      String   // 'TRADE_DEPOSIT' | 'TRADE_RECEIVED' | 'TRADE_WITHDRAWN' | 'REPORT_FILED' | 'NEW_MESSAGE'
+  linkId    String?  // tradeSessionId or productId
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
 

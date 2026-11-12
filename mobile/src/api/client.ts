@@ -117,5 +117,24 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+
+  // Favorites / Watchlist
+  getFavorites: (userId: string) => request<any[]>(`/users/${userId}/favorites`),
+
+  toggleFavorite: (userId: string, productId: string) =>
+    request<{ isFavorite: boolean; message: string }>(`/users/${userId}/favorites/toggle`, {
+      method: 'POST',
+      body: JSON.stringify({ productId }),
+    }),
+
+  // Notifications
+  getNotifications: (userId: string) =>
+    request<{ notifications: any[]; unreadCount: number }>(`/users/${userId}/notifications`),
+
+  markNotificationsRead: (userId: string, notificationId?: string) =>
+    request<{ success: boolean }>(`/users/${userId}/notifications/mark-read`, {
+      method: 'POST',
+      body: JSON.stringify({ notificationId }),
+    }),
 };
 

@@ -8,9 +8,11 @@ import {
   ScrollView,
   StyleSheet,
   Switch,
+  Image,
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { THEME } from '../theme';
 import { useAuth } from '../context/AuthContext';
 import { useLocation } from '../context/LocationContext';
@@ -74,6 +76,32 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
     } else {
       setSelectedReachRegionIds([...selectedReachRegionIds, regId]);
     }
+  };
+
+  const handlePickImage = async () => {
+    try {
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permissionResult.granted) {
+        alert('Permission to access photos is needed to upload product images.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsMultipleSelection: true,
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const newUris = result.assets.map((a) => a.uri);
+        setImages((prev) => [...prev, ...newUris]);
+      }
+    } catch (err: any) {
+      console.error('Image picker error:', err);
+    }
+  };
+
+  const handleRemoveImage = (index: number) => {
+    setImages((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleCreate = async () => {
@@ -196,6 +224,32 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
           {/* Basic Details */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>2. Item Details</Text>
+
+            {/* Photos Uploader */}
+            <Text style={styles.inputLabel}>Product Photos (Main cover + Additional)</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoList}>
+              <TouchableOpacity style={styles.addPhotoBox} onPress={handlePickImage}>
+                <Ionicons name="camera-outline" size={24} color={THEME.colors.primary} />
+                <Text style={styles.addPhotoText}>+ Photos</Text>
+              </TouchableOpacity>
+              {images.map((uri, idx) => (
+                <View key={idx} style={styles.uploadedPhotoBox}>
+                  <Image source={{ uri }} style={styles.uploadedPhoto} />
+                  {idx === 0 && (
+                    <View style={styles.mainCoverTag}>
+                      <Text style={styles.mainCoverText}>Cover</Text>
+                    </View>
+                  )}
+                  <TouchableOpacity
+                    style={styles.deletePhotoBtn}
+                    onPress={() => handleRemoveImage(idx)}
+                  >
+                    <Ionicons name="close" size={12} color="#FFF" />
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </ScrollView>
+
             <Text style={styles.inputLabel}>Product Title *</Text>
             <TextInput
               style={styles.input}
@@ -693,6 +747,66 @@ const styles = StyleSheet.create({
     color: THEME.colors.textSecondary,
     marginTop: 2,
     lineHeight: 16,
+  },
+  photoList: {
+    flexDirection: 'row',
+    marginVertical: 8,
+  },
+  addPhotoBox: {
+    width: 76,
+    height: 76,
+    borderRadius: THEME.borderRadius.sm,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: THEME.colors.primary,
+    backgroundColor: THEME.colors.primaryTint,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  addPhotoText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: THEME.colors.primary,
+    marginTop: 2,
+  },
+  uploadedPhotoBox: {
+    width: 76,
+    height: 76,
+    borderRadius: THEME.borderRadius.sm,
+    marginRight: 10,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  uploadedPhoto: {
+    width: '100%',
+    height: '100%',
+  },
+  mainCoverTag: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    paddingVertical: 2,
+    alignItems: 'center',
+  },
+  mainCoverText: {
+    color: '#FFF',
+    fontSize: 8,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  deletePhotoBtn: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: THEME.colors.alertRed,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

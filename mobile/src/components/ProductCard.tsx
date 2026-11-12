@@ -7,9 +7,16 @@ import { Product } from '../types';
 interface ProductCardProps {
   product: Product;
   onPress: () => void;
+  isFavorite?: boolean;
+  onToggleFavorite?: () => void;
 }
 
-export const ProductCard: React.FC<ProductCardProps> = ({ product, onPress }) => {
+export const ProductCard: React.FC<ProductCardProps> = ({
+  product,
+  onPress,
+  isFavorite = false,
+  onToggleFavorite,
+}) => {
   const imageUrl = product.images?.[0] || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500';
 
   // Format price into integer and decimal parts for Taobao price stack
@@ -38,6 +45,23 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onPress }) =>
             </View>
           )}
         </View>
+
+        {/* Favorite Heart Button */}
+        {onToggleFavorite && (
+          <TouchableOpacity
+            style={styles.cardHeartBtn}
+            onPress={(e: any) => {
+              e?.stopPropagation?.();
+              onToggleFavorite();
+            }}
+          >
+            <Ionicons
+              name={isFavorite ? 'heart' : 'heart-outline'}
+              size={16}
+              color={isFavorite ? THEME.colors.alertRed : '#FFFFFF'}
+            />
+          </TouchableOpacity>
+        )}
 
         {/* Delivery Reach Pill */}
         <View style={styles.deliveryPill}>
@@ -157,6 +181,17 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontWeight: '700',
     textTransform: 'uppercase',
+  },
+  cardHeartBtn: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   deliveryPill: {
     position: 'absolute',

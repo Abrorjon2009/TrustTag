@@ -104,3 +104,4 @@ In the top right corner of the header, tap the user pill to switch roles instant
 * **Alex Vance:** Customer / Buyer (has active wallet balance ready to buy items).
 * **Sarah Jenkins:** Verified Seller (has 18 completed safe trades and active listings).
 * **Platform Admin:** Dispute Arbitrator (has access to the Moderator Investigation Console).
+

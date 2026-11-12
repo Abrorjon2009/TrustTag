@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, Modal, Image, ScrollView, TouchableOpacity, StyleSheet, Linking, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { THEME } from '../theme';
 import { Product } from '../types';
 import { useAuth } from '../context/AuthContext';
+import { api } from '../api/client';
 
 interface ProductDetailModalProps {
   product: Product | null;
@@ -22,6 +23,27 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
   const [showPriceNegotiateModal, setShowPriceNegotiateModal] = useState(false);
   const [negotiatedPriceInput, setNegotiatedPriceInput] = useState('');
+  const [isFavorite, setIsFavorite] = useState(false);
+
+  useEffect(() => {
+    if (visible && product && currentUser) {
+      api.getFavorites(currentUser.id)
+        .then((favs) => {
+          setIsFavorite(favs.some((f: any) => f.id === product.id));
+        })
+        .catch(() => {});
+    }
+  }, [visible, product, currentUser]);
+
+  const handleToggleFavorite = async () => {
+    if (!currentUser || !product) return;
+    try {
+      const res = await api.toggleFavorite(currentUser.id, product.id);
+      setIsFavorite(res.isFavorite);
+    } catch (err: any) {
+      console.error('Favorite toggle error:', err);
+    }
+  };
 
   if (!product) return null;
 
@@ -74,8 +96,12 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           <Text style={styles.navTitle} numberOfLines={1}>
             {product.category}
           </Text>
-          <TouchableOpacity onPress={() => alert('Saved to Watchlist')} style={styles.navButton}>
-            <Ionicons name="heart-outline" size={24} color={THEME.colors.textPrimary} />
+          <TouchableOpacity onPress={handleToggleFavorite} style={styles.navButton}>
+            <Ionicons
+              name={isFavorite ? 'heart' : 'heart-outline'}
+              size={24}
+              color={isFavorite ? THEME.colors.alertRed : THEME.colors.textPrimary}
+            />
           </TouchableOpacity>
         </View>
 

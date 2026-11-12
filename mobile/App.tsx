@@ -30,6 +30,7 @@ import { ChatTradeModal } from './src/components/ChatTradeModal';
 import { ReportModal } from './src/components/ReportModal';
 import { WalletModal } from './src/components/WalletModal';
 import { AdminDisputeModal } from './src/components/AdminDisputeModal';
+import { NotificationModal } from './src/components/NotificationModal';
 
 function MainApp() {
   const { currentUser } = useAuth();
@@ -40,6 +41,9 @@ function MainApp() {
 
   // Products & Feed State
   const [products, setProducts] = useState<Product[]>([]);
+  const [favoriteProductIds, setFavoriteProductIds] = useState<string[]>([]);
+  const [favoriteProducts, setFavoriteProducts] = useState<Product[]>([]);
+  const [userProfileData, setUserProfileData] = useState<any>(null);
   const [isLoadingProducts, setIsLoadingProducts] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -58,11 +62,51 @@ function MainApp() {
   const [addProductModalVisible, setAddProductModalVisible] = useState(false);
   const [walletModalVisible, setWalletModalVisible] = useState(false);
   const [adminModalVisible, setAdminModalVisible] = useState(false);
+  const [notificationModalVisible, setNotificationModalVisible] = useState(false);
 
   // Active item & trade modals
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [activeTradeId, setActiveTradeId] = useState<string | null>(null);
   const [reportTradeId, setReportTradeId] = useState<string | null>(null);
+
+  // Fetch Favorites
+  const fetchFavorites = async () => {
+    if (!currentUser) return;
+    try {
+      const favs = await api.getFavorites(currentUser.id);
+      setFavoriteProducts(favs);
+      setFavoriteProductIds(favs.map((f: any) => f.id));
+    } catch (err) {
+      console.error('Failed to load favorites:', err);
+    }
+  };
+
+  // Toggle Favorite
+  const handleToggleFavorite = async (productId: string) => {
+    if (!currentUser) return;
+    try {
+      const res = await api.toggleFavorite(currentUser.id, productId);
+      if (res.isFavorite) {
+        setFavoriteProductIds((prev) => [...prev, productId]);
+      } else {
+        setFavoriteProductIds((prev) => prev.filter((id) => id !== productId));
+      }
+      fetchFavorites();
+    } catch (err) {
+      console.error('Toggle favorite error:', err);
+    }
+  };
+
+  // Fetch full user profile with reviews
+  const fetchUserProfile = async () => {
+    if (!currentUser) return;
+    try {
+      const data = await api.getUserProfile(currentUser.id);
+      setUserProfileData(data);
+    } catch (err) {
+      console.error('Failed to load user profile:', err);
+    }
+  };
 
   // Fetch Products based on all active filters
   const fetchProducts = async () => {
@@ -108,8 +152,18 @@ function MainApp() {
   }, [searchQuery, selectedCategory, productTypeFilter, sortBy, selectedRegion, selectedDistrict, selectedCity]);
 
   useEffect(() => {
+    if (currentUser) {
+      fetchFavorites();
+      fetchUserProfile();
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
     if (activeTab === 'MY_TRADES') {
       fetchUserTrades();
+    } else if (activeTab === 'PROFILE') {
+      fetchUserProfile();
+      fetchFavorites();
     }
   }, [activeTab, currentUser]);
 
@@ -137,6 +191,7 @@ function MainApp() {
         onOpenLocationPicker={() => setLocationModalVisible(true)}
         onOpenWallet={() => setWalletModalVisible(true)}
         onOpenAdmin={() => setAdminModalVisible(true)}
+        onOpenNotifications={() => setNotificationModalVisible(true)}
       />
 
       {/* Main Content Area Based on Tab */}
@@ -249,6 +304,8 @@ function MainApp() {
                       <ProductCard
                         key={item.id}
                         product={item}
+                        isFavorite={favoriteProductIds.includes(item.id)}
+                        onToggleFavorite={() => handleToggleFavorite(item.id)}
                         onPress={() => setSelectedProduct(item)}
                       />
                     ))}
@@ -262,6 +319,8 @@ function MainApp() {
                       <ProductCard
                         key={item.id}
                         product={item}
+                        isFavorite={favoriteProductIds.includes(item.id)}
+                        onToggleFavorite={() => handleToggleFavorite(item.id)}
                         onPress={() => setSelectedProduct(item)}
                       />
                     ))}
@@ -414,6 +473,61 @@ function MainApp() {
             </View>
           </View>
 
+          {/* Saved Watchlist Section */}
+          <View style={styles.profileSection}>
+            <View style={styles.sectionTitleRow}>
+              <Ionicons name="heart" size={16} color={THEME.colors.alertRed} />
+              <Text style={styles.profileSectionTitle}>My Saved Watchlist ({favoriteProducts.length})</Text>
+            </View>
+            {favoriteProducts.length === 0 ? (
+              <Text style={styles.emptyWatchlistText}>
+                No saved items yet. Tap the heart icon on any listing to save it to your Watchlist.
+              </Text>
+            ) : (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
+                {favoriteProducts.map((fav) => (
+                  <TouchableOpacity
+                    key={fav.id}
+                    style={styles.watchlistThumbCard}
+                    onPress={() => setSelectedProduct(fav)}
+                  >
+                    <Image source={{ uri: fav.images?.[0] }} style={styles.watchlistThumbImg} />
+                    <Text style={styles.watchlistThumbTitle} numberOfLines={1}>{fav.title}</Text>
+                    <Text style={styles.watchlistThumbPrice}>${fav.price.toFixed(2)}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
+          </View>
+
+          {/* Verified Trade Reviews Section */}
+          <View style={styles.profileSection}>
+            <View style={styles.sectionTitleRow}>
+              <Ionicons name="star" size={16} color={THEME.colors.vipGold} />
+              <Text style={styles.profileSectionTitle}>
+                Verified Trade Reviews ({userProfileData?.reviewsReceived?.length || 0})
+              </Text>
+            </View>
+            {(!userProfileData?.reviewsReceived || userProfileData.reviewsReceived.length === 0) ? (
+              <Text style={styles.emptyWatchlistText}>
+                No reviews yet. Authentic reviews can only be left by real trading partners after a Safe Trade is completed.
+              </Text>
+            ) : (
+              userProfileData.reviewsReceived.map((rev: any) => (
+                <View key={rev.id} style={styles.reviewItemBox}>
+                  <View style={styles.reviewItemHeader}>
+                    <Text style={styles.reviewAuthor}>{rev.author?.fullName}</Text>
+                    <Text style={styles.reviewStars}>{'⭐'.repeat(rev.rating)}</Text>
+                  </View>
+                  {rev.comment ? (
+                    <Text style={styles.reviewCommentText}>"{rev.comment}"</Text>
+                  ) : null}
+                  <Text style={styles.reviewDateText}>{new Date(rev.createdAt).toLocaleDateString()}</Text>
+                </View>
+              ))
+            )}
+          </View>
+
           <TouchableOpacity
             style={styles.profileActionBtn}
             onPress={() => setAddProductModalVisible(true)}
@@ -549,6 +663,16 @@ function MainApp() {
       <AdminDisputeModal
         visible={adminModalVisible}
         onClose={() => setAdminModalVisible(false)}
+      />
+
+      <NotificationModal
+        visible={notificationModalVisible}
+        onClose={() => setNotificationModalVisible(false)}
+        onSelectNotification={(linkId) => {
+          if (linkId) {
+            setActiveTradeId(linkId);
+          }
+        }}
       />
     </SafeAreaView>
   );
@@ -840,6 +964,84 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: THEME.colors.textPrimary,
+  },
+  profileSection: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: THEME.borderRadius.lg,
+    padding: 16,
+    marginBottom: 14,
+    ...THEME.shadows.card,
+  },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
+  profileSectionTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: THEME.colors.textPrimary,
+  },
+  emptyWatchlistText: {
+    fontSize: 11,
+    color: THEME.colors.textMuted,
+    lineHeight: 16,
+    marginTop: 4,
+  },
+  watchlistThumbCard: {
+    width: 110,
+    backgroundColor: THEME.colors.canvasBg,
+    borderRadius: THEME.borderRadius.sm,
+    padding: 6,
+    marginRight: 8,
+  },
+  watchlistThumbImg: {
+    width: '100%',
+    height: 80,
+    borderRadius: THEME.borderRadius.xs,
+    marginBottom: 4,
+  },
+  watchlistThumbTitle: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: THEME.colors.textPrimary,
+  },
+  watchlistThumbPrice: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: THEME.colors.primary,
+    marginTop: 2,
+  },
+  reviewItemBox: {
+    borderTopWidth: 0.5,
+    borderTopColor: THEME.colors.borderSubtle,
+    paddingTop: 8,
+    marginTop: 8,
+  },
+  reviewItemHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  reviewAuthor: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: THEME.colors.textPrimary,
+  },
+  reviewStars: {
+    fontSize: 10,
+  },
+  reviewCommentText: {
+    fontSize: 12,
+    color: THEME.colors.textSecondary,
+    fontStyle: 'italic',
+    marginTop: 4,
+  },
+  reviewDateText: {
+    fontSize: 10,
+    color: THEME.colors.textMuted,
+    marginTop: 4,
   },
   bottomTabBar: {
     flexDirection: 'row',

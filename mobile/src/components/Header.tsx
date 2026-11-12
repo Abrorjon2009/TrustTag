@@ -1,24 +1,36 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image, Modal, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { THEME } from '../theme';
 import { useAuth } from '../context/AuthContext';
 import { useLocation } from '../context/LocationContext';
+import { api } from '../api/client';
 
 interface HeaderProps {
   onOpenLocationPicker: () => void;
   onOpenWallet: () => void;
   onOpenAdmin: () => void;
+  onOpenNotifications: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   onOpenLocationPicker,
   onOpenWallet,
   onOpenAdmin,
+  onOpenNotifications,
 }) => {
   const { currentUser, users, switchUser } = useAuth();
   const { displayLocationName } = useLocation();
   const [userDropdownVisible, setUserDropdownVisible] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (currentUser) {
+      api.getNotifications(currentUser.id)
+        .then((res) => setUnreadCount(res.unreadCount || 0))
+        .catch(() => {});
+    }
+  }, [currentUser]);
 
   return (
     <View style={styles.container}>
@@ -43,10 +55,19 @@ export const Header: React.FC<HeaderProps> = ({
           <Ionicons name="chevron-down" size={12} color={THEME.colors.textSecondary} />
         </TouchableOpacity>
 
-        {/* Right Action Icons: Wallet & User Switcher */}
+        {/* Right Action Icons: Wallet, Notifications & User Switcher */}
         <View style={styles.actionsRight}>
+          <TouchableOpacity style={styles.iconButton} onPress={onOpenNotifications}>
+            <Ionicons name="notifications-outline" size={20} color={THEME.colors.textPrimary} />
+            {unreadCount > 0 && (
+              <View style={styles.bellBadge}>
+                <Text style={styles.bellBadgeText}>{unreadCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+
           <TouchableOpacity style={styles.iconButton} onPress={onOpenWallet}>
-            <Ionicons name="wallet-outline" size={22} color={THEME.colors.textPrimary} />
+            <Ionicons name="wallet-outline" size={20} color={THEME.colors.textPrimary} />
           </TouchableOpacity>
 
           {currentUser?.isAdmin && (
@@ -200,6 +221,24 @@ const styles = StyleSheet.create({
     padding: 6,
     borderRadius: THEME.borderRadius.pill,
     backgroundColor: THEME.colors.canvasBg,
+    position: 'relative',
+  },
+  bellBadge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    backgroundColor: THEME.colors.alertRed,
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 2,
+  },
+  bellBadgeText: {
+    color: '#FFF',
+    fontSize: 9,
+    fontWeight: '800',
   },
   adminBadge: {
     flexDirection: 'row',
