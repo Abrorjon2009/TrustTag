@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "description": "P2P Safe-Trading Marketplace with Central Bank Safe-Hold and Taobao-Inspired High Density UI",
   "scripts": {
+    "build": "cd server && npm install && npm run build",
+    "start": "cd server && npm start",
     "dev:server": "cd server && npm run dev",
     "dev:mobile": "cd mobile && npx expo start",
     "web": "cd mobile && npx expo start --web",
