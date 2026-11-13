@@ -1,7 +1,10 @@
 import { Platform } from 'react-native';
 
-// On Android Emulator localhost is 10.0.2.2, on Web and iOS it's localhost
-const BASE_HOST = Platform.OS === 'android' ? 'http://10.0.2.2:4000' : 'http://localhost:4000';
+// Support production remote backend (e.g. Railway) via EXPO_PUBLIC_API_URL, fallback to localhost
+const ENV_API_URL = process.env.EXPO_PUBLIC_API_URL;
+const BASE_HOST = ENV_API_URL
+  ? ENV_API_URL.replace(/\/+$/, '')
+  : (Platform.OS === 'android' ? 'http://10.0.2.2:4000' : 'http://localhost:4000');
 export const API_BASE_URL = `${BASE_HOST}/api`;
 export const SOCKET_URL = BASE_HOST;
 
