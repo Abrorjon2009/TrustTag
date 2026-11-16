@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   Switch,
   Image,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -50,13 +51,28 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
   const [condition, setCondition] = useState<'BRAND_NEW' | 'LIKE_NEW' | 'USED_GOOD' | 'USED_FAIR'>('LIKE_NEW');
 
   // Item Current Location
-  const [itemRegionId, setItemRegionId] = useState<number>(regions[0]?.id || 1);
+  const [itemRegionId, setItemRegionId] = useState<number>(regions[0]?.id || 4);
   const [itemDistrictId, setItemDistrictId] = useState<number>(regions[0]?.districts?.[0]?.id || 1);
   const [itemCityId, setItemCityId] = useState<number>(regions[0]?.districts?.[0]?.cities?.[0]?.id || 1);
 
   // Delivery Reach
   const [isWholeCountry, setIsWholeCountry] = useState(true);
-  const [selectedReachRegionIds, setSelectedReachRegionIds] = useState<number[]>([1]);
+  const [selectedReachRegionIds, setSelectedReachRegionIds] = useState<number[]>([regions[0]?.id || 4]);
+
+  // Synchronize when regions load from server
+  useEffect(() => {
+    if (regions && regions.length > 0) {
+      const firstReg = regions[0];
+      setItemRegionId(firstReg.id);
+      setSelectedReachRegionIds([firstReg.id]);
+      if (firstReg.districts && firstReg.districts.length > 0) {
+        setItemDistrictId(firstReg.districts[0].id);
+        if (firstReg.districts[0].cities && firstReg.districts[0].cities.length > 0) {
+          setItemCityId(firstReg.districts[0].cities[0].id);
+        }
+      }
+    }
+  }, [regions]);
   const [deliveryPayer, setDeliveryPayer] = useState<'FREE_DELIVERY' | 'BUYER_PAYS' | 'NEGOTIABLE'>('BUYER_PAYS');
   const [deliveryMethods, setDeliveryMethods] = useState<string[]>(['IN_PERSON_MEETUP', 'COURIER']);
 
@@ -113,12 +129,12 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
 
   const handleCreate = async () => {
     if (!title.trim() || !description.trim() || !price) {
-      alert('Please fill out Title, Description, and Price.');
+      Alert.alert('Diqqat', 'Iltimos, sarlavha, tavsif va narxni to\'ldiring.');
       return;
     }
 
     if (!currentUser) {
-      alert('Please select an active user first.');
+      Alert.alert('Diqqat', 'Iltimos, avval tizimga kiring yoki foydalanuvchini tanlang.');
       return;
     }
 
@@ -159,11 +175,11 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
       }
 
       await api.createProduct(payload);
-      alert('Product listed successfully!');
+      Alert.alert('Muvaffaqiyatli', 'E\'lon muvaffaqiyatli joylashtirildi!');
       onProductCreated();
       onClose();
     } catch (err: any) {
-      alert(`Error creating listing: ${err.message}`);
+      Alert.alert('Xatolik', `E'lon yaratib bo'lmadi: ${err.message}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -267,7 +283,16 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
 
             <Text style={styles.inputLabel}>Category</Text>
             <View style={styles.catRow}>
-              {['Electronics', 'Computers', 'Gaming & Digital Accounts', 'Clothing & Accessories'].map((cat) => (
+              {[
+                'Electronics',
+                'Computers',
+                'Gaming & Digital Accounts',
+                'Home & Appliances',
+                'Clothing & Accessories',
+                'Vehicles & Parts',
+                'Phones & Tablets',
+                'Online Only',
+              ].map((cat) => (
                 <TouchableOpacity
                   key={cat}
                   style={[styles.catChip, category === cat && styles.catChipActive]}

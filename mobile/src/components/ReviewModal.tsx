@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, Modal, TouchableOpacity, TextInput, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, TextInput, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { THEME } from '../theme';
 import { useAuth } from '../context/AuthContext';
@@ -38,11 +38,11 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
         rating,
         comment: comment.trim(),
       });
-      alert('Thank you! Your verified trade review has been published.');
+      Alert.alert('Rahmat!', 'Sizning tasdiqlangan savdo sharhingiz chop etildi.');
       onReviewSubmitted();
       onClose();
     } catch (err: any) {
-      alert(`Failed to submit review: ${err.message}`);
+      Alert.alert('Xatolik', `Sharh qoldirib bo'lmadi: ${err.message}`);
     } finally {
       setIsSubmitting(false);
     }

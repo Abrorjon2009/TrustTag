@@ -120,7 +120,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
             />
 
             <View style={styles.warningBox}>
-              <Ionicons name="shield-alert-outline" size={18} color={THEME.colors.alertRed} />
+              <Ionicons name="alert-circle-outline" size={18} color={THEME.colors.alertRed} />
               <Text style={styles.warningText}>
                 Filing a report will immediately freeze all money in the Central Safe Account or the user's
                 balance. Accounts cannot be deleted while under review.

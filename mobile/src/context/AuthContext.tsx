@@ -123,12 +123,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const switchUser = (userId: string) => {
+  const switchUser = async (userId: string) => {
     const found = users.find((u) => u.id === userId);
     if (found) {
       setCurrentUser(found);
       if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
         localStorage.setItem(STORAGE_KEY_USER, JSON.stringify(found));
+      }
+      try {
+        // Automatically obtain matching session token for seamless role switching
+        const authRes = await api.verifyOtp(found.phoneNumber, '123456');
+        if (authRes?.token) {
+          setAuthToken(authRes.token);
+          setTokenState(authRes.token);
+          if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+            localStorage.setItem(STORAGE_KEY_TOKEN, authRes.token);
+          }
+        }
+      } catch (e) {
+        console.log('Role switch token sync note:', e);
       }
     }
   };

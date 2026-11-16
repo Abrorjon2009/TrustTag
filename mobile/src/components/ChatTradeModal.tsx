@@ -63,7 +63,7 @@ export const ChatTradeModal: React.FC<ChatTradeModalProps> = ({
   const [paymentModalVisible, setPaymentModalVisible] = useState(false);
 
   const socketRef = useRef<Socket | null>(null);
-  const scrollViewRef = useRef<ScrollView | null>(null);
+  const scrollViewRef = useRef<any>(null);
 
   // Fetch trade data
   const loadTradeData = async () => {
@@ -95,6 +95,10 @@ export const ChatTradeModal: React.FC<ChatTradeModalProps> = ({
       });
 
       socket.on('trade_status_updated', () => {
+        loadTradeData();
+      });
+
+      socket.on('trade_status_changed', () => {
         loadTradeData();
       });
 
@@ -163,7 +167,30 @@ export const ChatTradeModal: React.FC<ChatTradeModalProps> = ({
           .then(() => {
             loadTradeData();
           })
-          .catch((err) => alert(`Withdrawal failed: ${err.message}`))
+          .catch((err) => Alert.alert('Withdrawal Failed', err.message))
+          .finally(() => setIsActionLoading(false));
+      },
+    });
+  };
+
+  // Seller Action: Mark Product as Shipped / Handed Over
+  const handleShipProduct = () => {
+    if (!trade || !currentUser) return;
+    setConfirmConfig({
+      visible: true,
+      title: 'Confirm Handover / Shipment',
+      message: `Have you handed over or dispatched "${trade.product.title}" to the customer?\n\nThis will lock the Safe-Hold and start the 5-day inspection window.`,
+      confirmText: 'Yes, Item Dispatched',
+      type: 'primary',
+      onConfirm: () => {
+        setConfirmConfig((prev) => ({ ...prev, visible: false }));
+        setIsActionLoading(true);
+        api
+          .shipTrade(trade.id, currentUser.id)
+          .then(() => {
+            loadTradeData();
+          })
+          .catch((err) => Alert.alert('Ship Failed', err.message))
           .finally(() => setIsActionLoading(false));
       },
     });
@@ -252,7 +279,7 @@ export const ChatTradeModal: React.FC<ChatTradeModalProps> = ({
                 <Text style={styles.productTitle} numberOfLines={1}>
                   {trade?.product.title}
                 </Text>
-                <Text style={styles.productPrice}>Agreed Price: ${trade?.agreedPrice.toFixed(2)}</Text>
+                <Text style={styles.productPrice}>Kelishilgan narx: {formatPrice(trade?.agreedPrice)}</Text>
               </View>
             </View>
 
@@ -267,7 +294,7 @@ export const ChatTradeModal: React.FC<ChatTradeModalProps> = ({
                 >
                   <Ionicons name="card-outline" size={16} color="#FFF" />
                   <Text style={styles.actionBtnText}>
-                    Send ${trade?.agreedPrice.toFixed(2)} to Central Safe Account
+                    {formatPrice(trade?.agreedPrice)} Xavfsiz Hisobga O'tkazish
                   </Text>
                 </TouchableOpacity>
               )}
@@ -277,7 +304,7 @@ export const ChatTradeModal: React.FC<ChatTradeModalProps> = ({
                 <View style={styles.sellerWarningBox}>
                   <Ionicons name="hourglass-outline" size={16} color={THEME.colors.textSecondary} />
                   <Text style={styles.sellerWarningText}>
-                    Waiting for customer to deposit funds into Central Safe-Hold. Do not hand over item yet.
+                    Xaridor pulni Xavfsiz Hisobga o'tkazishini kuting. Hozircha mahsulotni bermang!
                   </Text>
                 </View>
               )}
@@ -286,32 +313,48 @@ export const ChatTradeModal: React.FC<ChatTradeModalProps> = ({
               {trade?.status === 'MONEY_IN_SAFE_HOLD' && isBuyer && (
                 <View style={styles.dualActionRow}>
                   <TouchableOpacity
-                    style={[styles.actionBtn, styles.receiveBtn]}
+                    style={[styles.actionBtn, styles.receiveBtn, { flex: trade?.shippedAt ? 1 : 1 }]}
                     onPress={handleProductReceived}
                     disabled={isActionLoading}
                   >
                     <Ionicons name="checkmark-done" size={16} color="#FFF" />
-                    <Text style={styles.actionBtnText}>Product Received</Text>
+                    <Text style={styles.actionBtnText}>Mahsulotni Oldim</Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity
-                    style={[styles.actionBtn, styles.withdrawBtn]}
-                    onPress={handleWithdrawMoney}
-                    disabled={isActionLoading}
-                  >
-                    <Ionicons name="arrow-undo-outline" size={16} color="#FFF" />
-                    <Text style={styles.actionBtnText}>Withdraw Money</Text>
-                  </TouchableOpacity>
+                  {!trade?.shippedAt && (
+                    <TouchableOpacity
+                      style={[styles.actionBtn, styles.withdrawBtn]}
+                      onPress={handleWithdrawMoney}
+                      disabled={isActionLoading}
+                    >
+                      <Ionicons name="arrow-undo-outline" size={16} color="#FFF" />
+                      <Text style={styles.actionBtnText}>Pulni Qaytarib Olish</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               )}
 
               {/* If Stage 2 and Seller */}
               {trade?.status === 'MONEY_IN_SAFE_HOLD' && isSeller && (
-                <View style={styles.sellerSafeBox}>
-                  <Ionicons name="shield-checkmark" size={16} color={THEME.colors.safeGreen} />
-                  <Text style={styles.sellerSafeText}>
-                    Funds are secured in Central Account! Safe to deliver or hand over the product.
-                  </Text>
+                <View style={{ gap: 8, width: '100%' }}>
+                  <View style={styles.sellerSafeBox}>
+                    <Ionicons name="shield-checkmark" size={16} color={THEME.colors.safeGreen} />
+                    <Text style={styles.sellerSafeText}>
+                      {trade?.shippedAt
+                        ? "Mahsulot topshirildi/jo'natildi deb belgilandi! Xaridor qabul qilgach, pul o'tkaziladi."
+                        : "Pul Xavfsiz Hisobda! Mahsulotni topshiring va 'Topshirdim' tugmasini bosing."}
+                    </Text>
+                  </View>
+                  {!trade?.shippedAt && (
+                    <TouchableOpacity
+                      style={[styles.actionBtn, { backgroundColor: THEME.colors.primary }]}
+                      onPress={handleShipProduct}
+                      disabled={isActionLoading}
+                    >
+                      <Ionicons name="paper-plane" size={16} color="#FFF" />
+                      <Text style={styles.actionBtnText}>Mahsulotni Topshirdim / Jo'natdim</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               )}
             </View>

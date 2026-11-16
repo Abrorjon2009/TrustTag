@@ -23,16 +23,20 @@ export function getTradeBannerInfo(trade: any, currentUserId?: string) {
         canReport: true,
       };
     case 'MONEY_IN_SAFE_HOLD':
+      const isShipped = Boolean(trade.shippedAt);
       return {
         stage: 'STAGE_2_SAFE_HOLD',
         color: 'green',
         badgeBg: '#DEF7EC',
         badgeText: '#03543F',
-        title: 'Money in Central Safe Account',
-        message: `Customer deposited ${trade.agreedPrice.toLocaleString()} so'm into Central Account. Safe to deliver the product!`,
+        title: isShipped ? 'Mahsulot Jo\'natildi • Mablag\' Xavfsiz Hisobda' : 'Pul Markaziy Xavfsiz Hisobda',
+        message: isShipped
+          ? `Sotuvchi mahsulotni jo'natdi/topshirdi. Tekshirib olgach, qabul qilishni tasdiqlang.`
+          : `Xaridor ${trade.agreedPrice.toLocaleString()} so'm kiritdi. Mahsulotni topshirishingiz xavfsiz!`,
         canDeposit: false,
+        canShip: Boolean(currentUserId && trade.sellerId === currentUserId && !isShipped),
         canConfirmReceived: Boolean(currentUserId && trade.buyerId === currentUserId),
-        canWithdraw: Boolean(currentUserId && trade.buyerId === currentUserId),
+        canWithdraw: Boolean(currentUserId && trade.buyerId === currentUserId && !isShipped),
         canReport: true,
       };
     case 'COMPLETED':
@@ -252,7 +256,7 @@ router.get('/user/:userId', async (req, res) => {
 // POST /api/trades/:id/deposit - Customer deposits agreed price into Central Account
 router.post('/:id/deposit', async (req, res) => {
   try {
-    const { buyerId } = req.body;
+    const buyerId = req.body.buyerId || req.body.userId;
     const tradeId = req.params.id;
 
     const trade = await prisma.tradeSession.findUnique({
@@ -268,16 +272,15 @@ router.post('/:id/deposit', async (req, res) => {
 
     const price = trade.agreedPrice;
 
-    // Execute atomic balance & state updates
+    // Execute atomic balance & state updates with extended timeout for remote DB
     await prisma.$transaction(async (tx) => {
-      // 1. Ensure buyer wallet exists with sufficient funds (auto top-up simulated if low)
+      // 1. Ensure buyer wallet exists with sufficient funds (auto top-up simulated if low for test mode)
       let buyerWallet = await tx.wallet.findUnique({ where: { userId: buyerId } });
       if (!buyerWallet) {
         buyerWallet = await tx.wallet.create({
           data: { userId: buyerId, availableBalance: price },
         });
       } else if (buyerWallet.availableBalance < price) {
-        // Auto-topup simulation so testing never gets stuck
         buyerWallet = await tx.wallet.update({
           where: { id: buyerWallet.id },
           data: { availableBalance: price },
@@ -329,9 +332,11 @@ router.post('/:id/deposit', async (req, res) => {
         where: { id: trade.productId },
         data: { status: 'RESERVED_IN_TRADE' },
       });
+    }, { maxWait: 15000, timeout: 25000 });
 
-      // 5. Inject verified System Event into chat
-      await tx.chatMessage.create({
+    // 5. Audit Logging & System Event (outside financial transaction for speed & reliability)
+    try {
+      await prisma.chatMessage.create({
         data: {
           tradeSessionId: trade.id,
           senderId: buyerId,
@@ -341,8 +346,7 @@ router.post('/:id/deposit', async (req, res) => {
         },
       });
 
-      // 6. Notify Seller
-      await tx.notification.create({
+      await prisma.notification.create({
         data: {
           userId: trade.sellerId,
           title: '🛡️ Safe-Hold Deposit Received!',
@@ -351,11 +355,17 @@ router.post('/:id/deposit', async (req, res) => {
           linkId: trade.id,
         },
       });
-    });
+    } catch (auditErr) {
+      console.warn('Non-blocking deposit audit error:', auditErr);
+    }
 
-    // Notify via Socket.IO
+    // Notify via Socket.IO - emit both event names for maximum client compatibility
     if (io) {
       io.to(`trade_${trade.id}`).emit('trade_status_updated', {
+        tradeId: trade.id,
+        newStatus: 'MONEY_IN_SAFE_HOLD',
+      });
+      io.to(`trade_${trade.id}`).emit('trade_status_changed', {
         tradeId: trade.id,
         newStatus: 'MONEY_IN_SAFE_HOLD',
       });
@@ -371,7 +381,7 @@ router.post('/:id/deposit', async (req, res) => {
 // POST /api/trades/:id/receive - Customer confirms "Product Received" -> releases money to seller
 router.post('/:id/receive', async (req, res) => {
   try {
-    const { buyerId } = req.body;
+    const buyerId = req.body.buyerId || req.body.userId;
     const tradeId = req.params.id;
 
     const trade = await prisma.tradeSession.findUnique({
@@ -446,9 +456,11 @@ router.post('/:id/receive', async (req, res) => {
         where: { id: trade.buyerId },
         data: { successfulBuysCount: { increment: 1 } },
       });
+    }, { maxWait: 15000, timeout: 25000 });
 
+    try {
       // 6. System Message
-      await tx.chatMessage.create({
+      await prisma.chatMessage.create({
         data: {
           tradeSessionId: trade.id,
           senderId: buyerId,
@@ -459,7 +471,7 @@ router.post('/:id/receive', async (req, res) => {
       });
 
       // 7. Notification to Seller
-      await tx.notification.create({
+      await prisma.notification.create({
         data: {
           userId: trade.sellerId,
           title: '🎉 Product Received & Funds Released!',
@@ -468,10 +480,16 @@ router.post('/:id/receive', async (req, res) => {
           linkId: trade.id,
         },
       });
-    });
+    } catch (auditErr) {
+      console.warn('Non-blocking receive audit error:', auditErr);
+    }
 
     if (io) {
       io.to(`trade_${trade.id}`).emit('trade_status_updated', {
+        tradeId: trade.id,
+        newStatus: 'COMPLETED',
+      });
+      io.to(`trade_${trade.id}`).emit('trade_status_changed', {
         tradeId: trade.id,
         newStatus: 'COMPLETED',
       });
@@ -487,7 +505,7 @@ router.post('/:id/receive', async (req, res) => {
 // POST /api/trades/:id/withdraw - Customer withdraws money from Central Account
 router.post('/:id/withdraw', async (req, res) => {
   try {
-    const { buyerId } = req.body;
+    const buyerId = req.body.buyerId || req.body.userId;
     const tradeId = req.params.id;
 
     const trade = await prisma.tradeSession.findUnique({
@@ -499,6 +517,13 @@ router.post('/:id/withdraw', async (req, res) => {
     if (trade.buyerId !== buyerId) return res.status(403).json({ error: 'Only buyer can withdraw funds' });
     if (trade.status !== 'MONEY_IN_SAFE_HOLD') {
       return res.status(400).json({ error: `Cannot withdraw funds in status ${trade.status}` });
+    }
+
+    // Safety guard against unilateral withdrawal scam after seller shipped
+    if (trade.shippedAt) {
+      return res.status(400).json({
+        error: 'Product has already been marked as dispatched/handed over by seller. Please inspect the product and confirm receipt, or file an investigation report.',
+      });
     }
 
     const price = trade.agreedPrice;
@@ -548,9 +573,11 @@ router.post('/:id/withdraw', async (req, res) => {
         where: { id: trade.productId },
         data: { status: 'AVAILABLE' },
       });
+    }, { maxWait: 15000, timeout: 25000 });
 
+    try {
       // 5. System Message & Urgent Alert
-      await tx.chatMessage.create({
+      await prisma.chatMessage.create({
         data: {
           tradeSessionId: trade.id,
           senderId: buyerId,
@@ -561,7 +588,7 @@ router.post('/:id/withdraw', async (req, res) => {
       });
 
       // 6. Urgent Push Notification to Seller
-      await tx.notification.create({
+      await prisma.notification.create({
         data: {
           userId: trade.sellerId,
           title: '⚠️ URGENT: Customer Withdrew Money!',
@@ -570,10 +597,16 @@ router.post('/:id/withdraw', async (req, res) => {
           linkId: trade.id,
         },
       });
-    });
+    } catch (auditErr) {
+      console.warn('Non-blocking withdraw audit error:', auditErr);
+    }
 
     if (io) {
       io.to(`trade_${trade.id}`).emit('trade_status_updated', {
+        tradeId: trade.id,
+        newStatus: 'CANCELLED_WITHDRAWN',
+      });
+      io.to(`trade_${trade.id}`).emit('trade_status_changed', {
         tradeId: trade.id,
         newStatus: 'CANCELLED_WITHDRAWN',
       });
@@ -583,6 +616,81 @@ router.post('/:id/withdraw', async (req, res) => {
   } catch (error) {
     console.error('Withdraw error:', error);
     res.status(500).json({ error: 'Failed to process withdrawal' });
+  }
+});
+
+// POST /api/trades/:id/ship - Seller marks product as shipped/handed over
+router.post('/:id/ship', async (req, res) => {
+  try {
+    const sellerId = req.body.sellerId || req.body.userId;
+    const tradeId = req.params.id;
+
+    const trade = await prisma.tradeSession.findUnique({
+      where: { id: tradeId },
+      include: { product: true },
+    });
+
+    if (!trade) return res.status(404).json({ error: 'Trade not found' });
+    if (trade.sellerId !== sellerId) return res.status(403).json({ error: 'Only the seller can mark product as shipped' });
+    if (trade.status !== 'MONEY_IN_SAFE_HOLD') {
+      return res.status(400).json({ error: `Cannot ship product in status ${trade.status}` });
+    }
+
+    const autoReleaseDays = trade.product.productType === 'ONLINE' ? 1 : 5;
+    const autoReleaseAt = new Date(Date.now() + autoReleaseDays * 24 * 60 * 60 * 1000);
+    const shippedAt = new Date();
+
+    const updated = await prisma.tradeSession.update({
+      where: { id: trade.id },
+      data: {
+        shippedAt,
+        autoReleaseAt,
+      },
+    });
+
+    try {
+      await prisma.chatMessage.create({
+        data: {
+          tradeSessionId: trade.id,
+          senderId: sellerId,
+          messageText: `📦 SELLER UPDATE: Seller has dispatched/handed over "${trade.product.title}". Safe-Hold funds will auto-release in ${autoReleaseDays} day(s) unless customer reports a problem.`,
+          isSystemEvent: true,
+          systemEventType: 'PRODUCT_SHIPPED',
+        },
+      });
+
+      await prisma.notification.create({
+        data: {
+          userId: trade.buyerId,
+          title: '📦 Product Dispatched / Handed Over!',
+          message: `Seller marked "${trade.product.title}" as shipped. Please inspect and confirm receipt once received!`,
+          type: 'TRADE_SHIPPED',
+          linkId: trade.id,
+        },
+      });
+    } catch (auditErr) {
+      console.warn('Non-blocking ship audit error:', auditErr);
+    }
+
+    if (io) {
+      io.to(`trade_${trade.id}`).emit('trade_status_updated', {
+        tradeId: trade.id,
+        newStatus: 'MONEY_IN_SAFE_HOLD',
+        shippedAt,
+        autoReleaseAt,
+      });
+      io.to(`trade_${trade.id}`).emit('trade_status_changed', {
+        tradeId: trade.id,
+        newStatus: 'MONEY_IN_SAFE_HOLD',
+        shippedAt,
+        autoReleaseAt,
+      });
+    }
+
+    res.json({ success: true, message: 'Product marked as shipped/delivered', trade: updated });
+  } catch (error) {
+    console.error('Ship error:', error);
+    res.status(500).json({ error: 'Failed to mark product as shipped' });
   }
 });
 

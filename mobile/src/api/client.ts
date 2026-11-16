@@ -122,6 +122,20 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  updateProduct: (id: string, data: any) =>
+    request<any>(`/products/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  deleteProduct: (id: string) =>
+    request<any>(`/products/${id}`, {
+      method: 'DELETE',
+    }),
+
+  getSellerProducts: (sellerId: string) =>
+    request<any[]>(`/products/seller/${sellerId}`),
+
   // Trades
   startTrade: (data: { productId: string; buyerId: string; agreedPrice: number }) =>
     request<any>('/trades/start', {
@@ -150,6 +164,12 @@ export const api = {
     request<any>(`/trades/${id}/withdraw`, {
       method: 'POST',
       body: JSON.stringify({ buyerId }),
+    }),
+
+  shipTrade: (id: string, sellerId: string) =>
+    request<any>(`/trades/${id}/ship`, {
+      method: 'POST',
+      body: JSON.stringify({ sellerId }),
     }),
 
   // Disputes & Admin

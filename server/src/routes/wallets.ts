@@ -90,7 +90,7 @@ router.post('/:userId/topup', async (req, res) => {
         amount: amt,
         txType: 'DEPOSIT_TOPUP',
         idempotencyKey: `topup_${userId}_${Date.now()}`,
-        notes: `User added $${amt.toFixed(2)} to wallet via Bank Card`,
+        notes: `User added ${amt.toLocaleString()} so'm to wallet via Bank Card`,
       },
     });
 
@@ -129,7 +129,7 @@ router.post('/:userId/withdraw-bank', async (req, res) => {
         amount: amt,
         txType: 'CASH_OUT_TO_BANK',
         idempotencyKey: `cashout_${userId}_${Date.now()}`,
-        notes: `Withdrawn $${amt.toFixed(2)} to Bank Card ending in ${bankCardNumber ? bankCardNumber.slice(-4) : '****'}`,
+        notes: `Withdrawn ${amt.toLocaleString()} so'm to Bank Card ending in ${bankCardNumber ? bankCardNumber.slice(-4) : '****'}`,
       },
     });
 

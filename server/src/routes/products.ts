@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../db';
+import { optionalAuth, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 
@@ -26,8 +27,8 @@ router.get('/', async (req, res) => {
 
     if (search && typeof search === 'string') {
       where.OR = [
-        { title: { contains: search } },
-        { description: { contains: search } },
+        { title: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
       ];
     }
 
@@ -269,6 +270,113 @@ router.post('/', async (req, res) => {
   } catch (error) {
     console.error('Error creating product:', error);
     res.status(500).json({ error: 'Failed to create product listing' });
+  }
+});
+
+// GET /api/products/seller/:sellerId - Get all listings by a specific seller
+router.get('/seller/:sellerId', async (req, res) => {
+  try {
+    const products = await prisma.product.findMany({
+      where: { sellerId: req.params.sellerId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        itemRegion: true,
+        itemCity: true,
+      },
+    });
+
+    res.json(
+      products.map((p) => ({
+        ...p,
+        images: JSON.parse(p.images || '[]'),
+        deliveryMethods: JSON.parse(p.deliveryMethods || '[]'),
+      }))
+    );
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch seller products' });
+  }
+});
+
+// PUT /api/products/:id - Update product listing details
+router.put('/:id', optionalAuth, async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+    const existing = await prisma.product.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ error: 'Product not found' });
+
+    if (req.userId && existing.sellerId !== req.userId) {
+      return res.status(403).json({ error: 'Unauthorized to edit this listing' });
+    }
+
+    const {
+      title,
+      description,
+      price,
+      condition,
+      pricingType,
+      showPhone,
+      showEmail,
+      images,
+      status,
+    } = req.body;
+
+    const updated = await prisma.product.update({
+      where: { id },
+      data: {
+        ...(title && { title: title.trim() }),
+        ...(description && { description: description.trim() }),
+        ...(price !== undefined && { price: parseFloat(price) }),
+        ...(condition && { condition }),
+        ...(pricingType && { pricingType }),
+        ...(showPhone !== undefined && { showPhone: Boolean(showPhone) }),
+        ...(showEmail !== undefined && { showEmail: Boolean(showEmail) }),
+        ...(images && { images: JSON.stringify(images) }),
+        ...(status && { status }),
+      },
+    });
+
+    res.json({
+      ...updated,
+      images: JSON.parse(updated.images || '[]'),
+      deliveryMethods: JSON.parse(updated.deliveryMethods || '[]'),
+    });
+  } catch (error) {
+    console.error('Update product error:', error);
+    res.status(500).json({ error: 'Failed to update product listing' });
+  }
+});
+
+// DELETE /api/products/:id - Delete or archive product listing
+router.delete('/:id', optionalAuth, async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+    const existing = await prisma.product.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ error: 'Product not found' });
+
+    if (req.userId && existing.sellerId !== req.userId) {
+      return res.status(403).json({ error: 'Unauthorized to delete this listing' });
+    }
+
+    // Check if product is in an active safe hold
+    const activeTrade = await prisma.tradeSession.findFirst({
+      where: { productId: id, status: 'MONEY_IN_SAFE_HOLD' },
+    });
+
+    if (activeTrade) {
+      return res.status(400).json({
+        error: 'Cannot delete product with active Safe Trade in progress',
+      });
+    }
+
+    await prisma.product.update({
+      where: { id },
+      data: { status: 'ARCHIVED' },
+    });
+
+    res.json({ success: true, message: 'Listing archived successfully' });
+  } catch (error) {
+    console.error('Delete product error:', error);
+    res.status(500).json({ error: 'Failed to delete listing' });
   }
 });
 

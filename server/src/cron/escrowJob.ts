@@ -121,7 +121,12 @@ export function startEscrowCronJobs() {
           });
         });
 
-        // Broadcast to WebSocket room
+        // Broadcast to WebSocket room - both events for full client compatibility
+        io.to(`trade_${trade.id}`).emit('trade_status_updated', {
+          tradeId: trade.id,
+          newStatus: 'COMPLETED',
+          completedAt: now,
+        });
         io.to(`trade_${trade.id}`).emit('trade_status_changed', {
           tradeId: trade.id,
           newStatus: 'COMPLETED',

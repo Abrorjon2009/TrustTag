@@ -53,7 +53,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
   const handleStartTradeClick = () => {
     if (currentUser?.id === product.sellerId) {
-      alert('This is your own listing.');
+      Alert.alert('Eslatma', 'Bu sizning o\'z e\'loningiz.');
       return;
     }
     setNegotiatedPriceInput(product.price.toString());
@@ -69,20 +69,20 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const handleCallSeller = () => {
     if (product.seller.phoneNumber) {
       Linking.openURL(`tel:${product.seller.phoneNumber}`).catch(() => {
-        alert(`Seller Phone: ${product.seller.phoneNumber}`);
+        Alert.alert('Sotuvchi Telefoni', product.seller.phoneNumber || '');
       });
     } else {
-      alert('The seller has kept their phone number private. Please use In-App Chat.');
+      Alert.alert('Maxfiy', 'Sotuvchi telefon raqamini yashirgan. Iltimos, xavfsiz chat orqali yozishing.');
     }
   };
 
   const handleEmailSeller = () => {
     if (product.seller.email) {
       Linking.openURL(`mailto:${product.seller.email}?subject=Question about ${product.title}`).catch(() => {
-        alert(`Seller Email: ${product.seller.email}`);
+        Alert.alert('Sotuvchi Emaili', product.seller.email || '');
       });
     } else {
-      alert('The seller has kept their email private. Please use In-App Chat.');
+      Alert.alert('Maxfiy', 'Sotuvchi email manzilini yashirgan. Iltimos, xavfsiz chat orqali yozishing.');
     }
   };
 

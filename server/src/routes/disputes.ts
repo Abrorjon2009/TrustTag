@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../db';
 import { io } from '../index';
+import { optionalAuth, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 const CENTRAL_VAULT_ID = '00000000-0000-0000-0000-000000000000';
@@ -164,7 +165,7 @@ router.post('/:id/resolve', async (req, res) => {
             data: { safeHoldBalance: { decrement: price } },
           });
         }
-        await tx.wallet.update({
+        const sellerWallet = await tx.wallet.update({
           where: { userId: trade.sellerId },
           data: { availableBalance: { increment: price } },
         });
@@ -172,6 +173,24 @@ router.post('/:id/resolve', async (req, res) => {
         await tx.tradeSession.update({
           where: { id: trade.id },
           data: { status: 'COMPLETED', completedAt: new Date() },
+        });
+
+        await tx.product.update({
+          where: { id: trade.productId },
+          data: { status: 'SOLD' },
+        });
+
+        // Record Ledger
+        await tx.ledgerEntry.create({
+          data: {
+            tradeSessionId: trade.id,
+            sourceWalletId: vaultWallet?.id,
+            destWalletId: sellerWallet.id,
+            amount: price,
+            txType: 'ESCROW_RELEASE_PAYOUT',
+            idempotencyKey: `DISPUTE_PAYOUT_${trade.id}_${Date.now()}`,
+            notes: `Admin adjudication: payout approved for seller (${adminNotes || ''})`,
+          },
         });
 
         await tx.dispute.update({
@@ -192,7 +211,7 @@ router.post('/:id/resolve', async (req, res) => {
             data: { safeHoldBalance: { decrement: price } },
           });
         }
-        await tx.wallet.update({
+        const buyerWallet = await tx.wallet.update({
           where: { userId: trade.buyerId },
           data: { availableBalance: { increment: price } },
         });
@@ -200,6 +219,24 @@ router.post('/:id/resolve', async (req, res) => {
         await tx.tradeSession.update({
           where: { id: trade.id },
           data: { status: 'CANCELLED_WITHDRAWN', withdrawnAt: new Date() },
+        });
+
+        await tx.product.update({
+          where: { id: trade.productId },
+          data: { status: 'AVAILABLE' },
+        });
+
+        // Record Ledger
+        await tx.ledgerEntry.create({
+          data: {
+            tradeSessionId: trade.id,
+            sourceWalletId: vaultWallet?.id,
+            destWalletId: buyerWallet.id,
+            amount: price,
+            txType: 'ESCROW_REFUND_WITHDRAWAL',
+            idempotencyKey: `DISPUTE_REFUND_${trade.id}_${Date.now()}`,
+            notes: `Admin adjudication: refund approved for buyer (${adminNotes || ''})`,
+          },
         });
 
         await tx.dispute.update({
@@ -217,10 +254,14 @@ router.post('/:id/resolve', async (req, res) => {
           data: { isBanned: true },
         });
       }
-    });
+    }, { maxWait: 15000, timeout: 25000 });
 
     if (io) {
       io.to(`trade_${trade.id}`).emit('trade_status_updated', {
+        tradeId: trade.id,
+        newStatus: action === 'PAY_SELLER' ? 'COMPLETED' : 'CANCELLED_WITHDRAWN',
+      });
+      io.to(`trade_${trade.id}`).emit('trade_status_changed', {
         tradeId: trade.id,
         newStatus: action === 'PAY_SELLER' ? 'COMPLETED' : 'CANCELLED_WITHDRAWN',
       });

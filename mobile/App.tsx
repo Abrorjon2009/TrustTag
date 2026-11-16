@@ -4,14 +4,16 @@ import {
   Text,
   View,
   SafeAreaView,
-  StatusBar,
   ScrollView,
   RefreshControl,
   TouchableOpacity,
   ActivityIndicator,
   FlatList,
   Platform,
+  Image,
+  Alert,
 } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { THEME } from './src/theme';
 import { Product, TradeSession } from './src/types';
@@ -191,7 +193,7 @@ function MainApp() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar style="dark" />
 
       {/* Top Navbar */}
       <Header
@@ -415,7 +417,7 @@ function MainApp() {
                           Role: {isBuyer ? '🛒 Buyer (Customer)' : '📦 Seller'}
                         </Text>
                         <Text style={styles.tradePriceText}>
-                          Agreed Price: ${item.agreedPrice.toFixed(2)}
+                          Kelishilgan narx: {formatPrice(item.agreedPrice)}
                         </Text>
                       </View>
                       <Ionicons name="chevron-forward" size={20} color={THEME.colors.textMuted} />
@@ -430,16 +432,86 @@ function MainApp() {
 
       {/* Tab 3: WALLET */}
       {activeTab === 'WALLET' && (
-        <View style={styles.tabViewContainer}>
+        <ScrollView style={styles.tabViewContainer} showsVerticalScrollIndicator={false}>
+          <Text style={styles.screenTitle}>Markaziy Bank Xavfsiz Hamyoni</Text>
+          <Text style={styles.screenSubtitle}>
+            Safe-Hold escrow tizimi orqali to'liq kafolatlangan balansingiz:
+          </Text>
+
+          {/* Balance Summary Card */}
+          <View style={[styles.balanceCardInline]}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <View>
+                <Text style={styles.balanceInlineLabel}>Mavjud Balans (Erkin)</Text>
+                <Text style={styles.balanceInlineAmount}>
+                  {formatPrice(currentUser?.wallet?.availableBalance || 0)}
+                </Text>
+              </View>
+              <View style={styles.vaultShieldIcon}>
+                <Ionicons name="shield-checkmark" size={26} color="#FFFFFF" />
+              </View>
+            </View>
+
+            <View style={styles.balanceInlineDivider} />
+
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <View>
+                <Text style={styles.balanceSubLabel}>Xavfsiz Savdoda (Safe-Hold)</Text>
+                <Text style={styles.balanceSubVal}>
+                  {formatPrice(currentUser?.wallet?.safeHoldBalance || 0)}
+                </Text>
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={styles.balanceSubLabel}>Muzlatilgan (Tekshiruvda)</Text>
+                <Text style={[styles.balanceSubVal, { color: THEME.colors.alertRed }]}>
+                  {formatPrice(currentUser?.wallet?.frozenBalance || 0)}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Quick Wallet Action Buttons */}
+          <View style={styles.walletActionRow}>
+            <TouchableOpacity
+              style={[styles.walletActionBtn, { backgroundColor: THEME.colors.primary }]}
+              onPress={() => setWalletModalVisible(true)}
+            >
+              <Ionicons name="add-circle-outline" size={18} color="#FFFFFF" />
+              <Text style={styles.walletActionBtnText}>Hamyonni To'ldirish</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.walletActionBtn, { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: THEME.colors.primary }]}
+              onPress={() => setWalletModalVisible(true)}
+            >
+              <Ionicons name="card-outline" size={18} color={THEME.colors.primary} />
+              <Text style={[styles.walletActionBtnText, { color: THEME.colors.primary }]}>Kartaga Chiqarish</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Security Guarantee Box */}
+          <View style={styles.walletSecurityBox}>
+            <Ionicons name="lock-closed" size={20} color={THEME.colors.safeGreen} />
+            <View style={{ flex: 1, marginLeft: 10 }}>
+              <Text style={styles.walletSecurityTitle}>Markaziy Bank Xavfsizlik Kafolati</Text>
+              <Text style={styles.walletSecurityDesc}>
+                Sizning mablag'laringiz mustaqil Xavfsiz Hisobda saqlanadi. Mahsulot to'liq tekshirib olinmaguncha sotuvchiga o'tkazilmaydi.
+              </Text>
+            </View>
+          </View>
+
+          {/* Open Full Ledger Button */}
           <TouchableOpacity
             style={styles.openWalletLargeBtn}
             onPress={() => setWalletModalVisible(true)}
           >
-            <Ionicons name="wallet-outline" size={32} color="#FFF" />
-            <Text style={styles.openWalletLargeText}>Open Central Bank Account & Wallet</Text>
-            <Text style={styles.openWalletSub}>View Available, Safe-Hold & Frozen Balances</Text>
+            <Ionicons name="receipt-outline" size={22} color="#FFF" />
+            <Text style={styles.openWalletLargeText}>To'liq Tranzaksiyalar Tarixi & Hisobot</Text>
+            <Text style={styles.openWalletSub}>Barcha kirim, chiqim va xavfsiz hold o'tkazmalari</Text>
           </TouchableOpacity>
-        </View>
+
+          <View style={{ height: 100 }} />
+        </ScrollView>
       )}
 
       {/* Tab 4: PROFILE */}
@@ -597,15 +669,28 @@ function MainApp() {
           <TouchableOpacity
             style={[styles.profileActionBtn, { borderColor: '#FEE2E2', backgroundColor: '#FEF2F2' }]}
             onPress={() => {
-              if (Platform.OS === 'web') {
+              const executeDelete = () => {
+                api.deleteAccount()
+                  .then(() => {
+                    Alert.alert('Muvaffaqiyatli', 'Hisob muvaffaqiyatli o\'chirildi.');
+                    logout();
+                  })
+                  .catch((err) => Alert.alert('Xatolik', err.message));
+              };
+
+              if (Platform.OS === 'web' && typeof window !== 'undefined' && window.confirm) {
                 if (window.confirm('Haqiqatan ham hisobingizni o\'chirmoqchimisiz? Bu amalni ortga qaytarib bo\'lmaydi.')) {
-                  api.deleteAccount()
-                    .then(() => {
-                      alert('Hisob muvaffaqiyatli o\'chirildi.');
-                      logout();
-                    })
-                    .catch((err) => alert(err.message));
+                  executeDelete();
                 }
+              } else {
+                Alert.alert(
+                  'Hisobni o\'chirish',
+                  'Haqiqatan ham hisobingizni o\'chirmoqchimisiz? Bu amalni ortga qaytarib bo\'lmaydi.',
+                  [
+                    { text: 'Bekor qilish', style: 'cancel' },
+                    { text: 'O\'chirish', style: 'destructive', onPress: executeDelete },
+                  ]
+                );
               }
             }}
           >
@@ -964,13 +1049,96 @@ const styles = StyleSheet.create({
     color: THEME.colors.primary,
     marginTop: 4,
   },
-  openWalletLargeBtn: {
-    backgroundColor: THEME.colors.primary,
+  balanceCardInline: {
+    backgroundColor: '#FFFFFF',
     borderRadius: THEME.borderRadius.lg,
-    padding: 24,
+    padding: 20,
+    marginBottom: 16,
+    ...THEME.shadows.card,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  balanceInlineLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: THEME.colors.textSecondary,
+    textTransform: 'uppercase',
+  },
+  balanceInlineAmount: {
+    fontSize: 26,
+    fontWeight: '900',
+    color: THEME.colors.primary,
+    marginTop: 4,
+  },
+  vaultShieldIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: THEME.colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  balanceInlineDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginVertical: 16,
+  },
+  balanceSubLabel: {
+    fontSize: 11,
+    color: THEME.colors.textSecondary,
+    fontWeight: '600',
+  },
+  balanceSubVal: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: THEME.colors.textPrimary,
+    marginTop: 2,
+  },
+  walletActionRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  walletActionBtn: {
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 40,
+    height: 48,
+    borderRadius: THEME.borderRadius.md,
+    gap: 6,
+  },
+  walletActionBtnText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  walletSecurityBox: {
+    flexDirection: 'row',
+    backgroundColor: THEME.colors.safeGreenLight,
+    padding: 14,
+    borderRadius: THEME.borderRadius.md,
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  walletSecurityTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: THEME.colors.safeGreen,
+  },
+  walletSecurityDesc: {
+    fontSize: 11,
+    color: '#065F46',
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  openWalletLargeBtn: {
+    backgroundColor: '#0F172A',
+    borderRadius: THEME.borderRadius.lg,
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
     ...THEME.shadows.float,
   },
   openWalletLargeText: {

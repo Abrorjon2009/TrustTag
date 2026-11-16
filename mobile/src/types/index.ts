@@ -29,6 +29,7 @@ export interface User {
   unresolvedReportsCount: number;
   isBanned: boolean;
   isAdmin: boolean;
+  wallet?: Wallet | null;
 }
 
 export interface ProductDeliveryReach {
@@ -95,6 +96,7 @@ export interface TradeBannerInfo {
   canConfirmReceived: boolean;
   canWithdraw: boolean;
   canReport: boolean;
+  canShip?: boolean;
 }
 
 export interface ChatMessage {
@@ -123,6 +125,8 @@ export interface TradeSession {
   agreedPrice: number;
   status: 'NEGOTIATING' | 'MONEY_IN_SAFE_HOLD' | 'COMPLETED' | 'CANCELLED_WITHDRAWN' | 'UNDER_INVESTIGATION';
   depositedAt?: string | null;
+  shippedAt?: string | null;
+  autoReleaseAt?: string | null;
   completedAt?: string | null;
   withdrawnAt?: string | null;
   disputedAt?: string | null;

@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Image,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { THEME } from '../theme';
@@ -45,13 +46,8 @@ export const AdminDisputeModal: React.FC<AdminDisputeModalProps> = ({ visible, o
     }
   }, [visible]);
 
-  const handleResolve = async (action: 'PAY_SELLER' | 'REFUND_BUYER' | 'BAN_ACCUSED') => {
+  const executeResolve = async (action: 'PAY_SELLER' | 'REFUND_BUYER' | 'BAN_ACCUSED') => {
     if (!selectedDispute) return;
-    const confirmed = confirm(
-      `Execute Moderator Decision: ${action.replace('_', ' ')}?\n\nThis will disburse funds and record an official administrative ruling.`
-    );
-    if (!confirmed) return;
-
     setIsResolving(true);
     try {
       await api.resolveDispute(selectedDispute.id, {
@@ -59,13 +55,25 @@ export const AdminDisputeModal: React.FC<AdminDisputeModalProps> = ({ visible, o
         adminNotes: `Moderator reviewed evidence and resolved via ${action}`,
         resolvedBy: 'Platform Admin',
       });
-      alert(`Case successfully resolved with action: ${action}`);
+      Alert.alert('Success', `Case successfully resolved with action: ${action}`);
       loadDisputes();
     } catch (err: any) {
-      alert(`Resolution failed: ${err.message}`);
+      Alert.alert('Resolution Failed', err.message || 'Error resolving dispute');
     } finally {
       setIsResolving(false);
     }
+  };
+
+  const handleResolve = (action: 'PAY_SELLER' | 'REFUND_BUYER' | 'BAN_ACCUSED') => {
+    if (!selectedDispute) return;
+    Alert.alert(
+      'Moderator Decision',
+      `Execute Moderator Decision: ${action.replace(/_/g, ' ')}?\n\nThis will disburse funds and record an official administrative ruling.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Execute', style: 'destructive', onPress: () => executeResolve(action) },
+      ]
+    );
   };
 
   if (!visible) return null;

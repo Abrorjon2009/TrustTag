@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Modal, TouchableOpacity, ScrollView, StyleSheet, TextInput, ActivityIndicator } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, ScrollView, StyleSheet, TextInput, ActivityIndicator, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { THEME } from '../theme';
 import { useAuth } from '../context/AuthContext';
@@ -56,11 +56,11 @@ export const WalletModal: React.FC<WalletModalProps> = ({ visible, onClose }) =>
     setIsProcessing(true);
     try {
       await api.withdrawBank(currentUser.id, parseFloat(withdrawAmount), bankCard);
-      alert(`${formatPrice(parseFloat(withdrawAmount))} bank kartangizga (${bankCard}) muvaffaqiyatli o'tkazildi!`);
+      Alert.alert('Muvaffaqiyatli', `${formatPrice(parseFloat(withdrawAmount))} bank kartangizga (${bankCard}) muvaffaqiyatli o'tkazildi!`);
       setShowWithdrawDialog(false);
       loadWallet();
     } catch (err: any) {
-      alert(`Chiqarishda xatolik: ${err.message}`);
+      Alert.alert('Chiqarishda xatolik', err.message || 'Xatolik yuz berdi');
     } finally {
       setIsProcessing(false);
     }
