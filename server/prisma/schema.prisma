@@ -20,6 +20,9 @@ model User {
   unresolvedReportsCount Int            @default(0)
   isBanned               Boolean        @default(false)
   isAdmin                Boolean        @default(false)
+  firebaseUid            String?        @unique
+  refreshToken           String?
+  preferredLang          String         @default("uz")
   createdAt              DateTime       @default(now())
   updatedAt              DateTime       @updatedAt
 
@@ -74,6 +77,7 @@ model Product {
   productType     String                 // 'ONLINE' | 'PHYSICAL'
   condition       String?                // 'BRAND_NEW' | 'LIKE_NEW' | 'USED_GOOD' | 'USED_FAIR' | 'FOR_PARTS'
   price           Float
+  currency        String                 @default("UZS")
   pricingType     String                 @default("FIXED") // 'FIXED' | 'NEGOTIABLE' | 'TRADE_SWAP'
   
   showPhone       Boolean                @default(false)
@@ -120,6 +124,7 @@ model Wallet {
   id               String         @id @default(uuid())
   userId           String         @unique
   user             User           @relation(fields: [userId], references: [id])
+  currency         String         @default("UZS")
   availableBalance Float          @default(0.0)
   safeHoldBalance  Float          @default(0.0)
   frozenBalance    Float          @default(0.0)
@@ -138,7 +143,10 @@ model LedgerEntry {
   sourceWallet        Wallet?       @relation("SourceWallet", fields: [sourceWalletId], references: [id])
   destWallet          Wallet?       @relation("DestWallet", fields: [destWalletId], references: [id])
   amount              Float
+  currency            String        @default("UZS")
   txType              String        // 'DEPOSIT_TOPUP' | 'ESCROW_LOCK' | 'ESCROW_RELEASE_PAYOUT' | 'ESCROW_REFUND_WITHDRAWAL' | 'FREEZE' | 'UNFREEZE'
+  paymentProvider     String?       // 'PAYME' | 'CLICK' | 'UZUM' | 'WALLET'
+  externalTxId        String?
   idempotencyKey      String        @unique
   notes               String?
   createdAt           DateTime      @default(now())
@@ -153,9 +161,14 @@ model TradeSession {
   sellerId       String
   seller         User           @relation("SellerTrades", fields: [sellerId], references: [id])
   agreedPrice    Float
+  currency       String         @default("UZS")
+  paymentMethod  String         @default("WALLET") // 'WALLET' | 'PAYME' | 'CLICK'
+  paymentRef     String?
   status         String         @default("NEGOTIATING") // 'NEGOTIATING' | 'MONEY_IN_SAFE_HOLD' | 'COMPLETED' | 'CANCELLED_WITHDRAWN' | 'UNDER_INVESTIGATION'
 
   depositedAt    DateTime?
+  shippedAt      DateTime?
+  autoReleaseAt  DateTime?
   completedAt    DateTime?
   withdrawnAt    DateTime?
   disputedAt     DateTime?
@@ -245,5 +258,18 @@ model Notification {
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
 }
+
+model OtpVerification {
+  id          String   @id @default(uuid())
+  phoneNumber String
+  code        String
+  expiresAt   DateTime
+  verified    Boolean  @default(false)
+  attempts    Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  @@index([phoneNumber])
+}
+
 
 

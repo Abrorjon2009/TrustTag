@@ -3,6 +3,7 @@ import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { THEME } from '../theme';
 import { Product } from '../types';
+import { formatPrice } from '../utils/formatters';
 
 interface ProductCardProps {
   product: Product;
@@ -19,10 +20,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 }) => {
   const imageUrl = product.images?.[0] || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500';
 
-  // Format price into integer and decimal parts for Taobao price stack
-  const priceParts = product.price.toFixed(2).split('.');
-  const integerPart = priceParts[0];
-  const decimalPart = priceParts[1];
+  // Format price into space-separated string for Uzbekistan market
+  const formattedPriceString = Math.round(product.price)
+    .toString()
+    .replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.88}>
@@ -101,12 +102,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           </View>
         </View>
 
-        {/* Taobao Signature 3-Tier Price Stack */}
+        {/* Taobao Signature High-Density Price Stack for Uzbekistan UZS */}
         <View style={styles.priceRow}>
           <View style={styles.priceStack}>
-            <Text style={styles.currencySymbol}>$</Text>
-            <Text style={styles.priceInteger}>{integerPart}</Text>
-            <Text style={styles.priceDecimal}>.{decimalPart}</Text>
+            <Text style={styles.priceInteger}>{formattedPriceString}</Text>
+            <Text style={styles.currencySymbol}> so'm</Text>
           </View>
 
           {/* Quick Chat Pill */}

@@ -5,6 +5,7 @@ import { THEME } from '../theme';
 import { Product } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api/client';
+import { formatPrice } from '../utils/formatters';
 
 interface ProductDetailModalProps {
   product: Product | null;
@@ -135,9 +136,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           <View style={styles.detailsCard}>
             <View style={styles.priceContainer}>
               <View style={styles.priceStack}>
-                <Text style={styles.currencySymbol}>$</Text>
-                <Text style={styles.priceInteger}>{priceParts[0]}</Text>
-                <Text style={styles.priceDecimal}>.{priceParts[1]}</Text>
+                <Text style={styles.priceInteger}>{formatPrice(product.price)}</Text>
               </View>
               <View style={styles.pricingTag}>
                 <Text style={styles.pricingTagText}>

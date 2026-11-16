@@ -92,8 +92,15 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        const newUris = result.assets.map((a) => a.uri);
-        setImages((prev) => [...prev, ...newUris]);
+        for (const asset of result.assets) {
+          try {
+            const uploaded = await api.uploadImage(asset.uri, asset.fileName || 'product.jpg');
+            setImages((prev) => [...prev, uploaded.url]);
+          } catch (uploadErr) {
+            // fallback to asset uri
+            setImages((prev) => [...prev, asset.uri]);
+          }
+        }
       }
     } catch (err: any) {
       console.error('Image picker error:', err);
@@ -271,11 +278,11 @@ export const AddProductModal: React.FC<AddProductModalProps> = ({
               ))}
             </View>
 
-            <Text style={styles.inputLabel}>Price ($) *</Text>
+            <Text style={styles.inputLabel}>Narxi (so'm / UZS) *</Text>
             <View style={styles.priceRow}>
               <TextInput
                 style={[styles.input, styles.priceInput]}
-                placeholder="250.00"
+                placeholder="1 200 000"
                 keyboardType="numeric"
                 value={price}
                 onChangeText={setPrice}

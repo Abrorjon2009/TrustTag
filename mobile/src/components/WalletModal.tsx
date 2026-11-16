@@ -5,6 +5,7 @@ import { THEME } from '../theme';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api/client';
 import { LedgerEntry, Wallet } from '../types';
+import { formatPrice } from '../utils/formatters';
 
 interface WalletModalProps {
   visible: boolean;
@@ -104,7 +105,7 @@ export const WalletModal: React.FC<WalletModalProps> = ({ visible, onClose }) =>
                 <View>
                   <Text style={styles.balanceLabel}>Available Balance</Text>
                   <Text style={styles.balanceAmount}>
-                    ${(wallet?.availableBalance || 0).toFixed(2)}
+                    {formatPrice(wallet?.availableBalance || 0)}
                   </Text>
                 </View>
                 <View style={styles.vaultShield}>
@@ -147,10 +148,10 @@ export const WalletModal: React.FC<WalletModalProps> = ({ visible, onClose }) =>
                   <Text style={styles.matrixTag}>Safe Hold</Text>
                 </View>
                 <Text style={styles.matrixAmount}>
-                  ${(buyerLocked + sellerIncoming).toFixed(2)}
+                  {formatPrice(buyerLocked + sellerIncoming)}
                 </Text>
                 <Text style={styles.matrixNote}>
-                  {buyerLocked > 0 ? `🛒 $${buyerLocked} in trades you are buying` : 'Active trades'}
+                  {buyerLocked > 0 ? `🛒 ${formatPrice(buyerLocked)} in trades you are buying` : 'Active trades'}
                 </Text>
               </View>
 
@@ -161,7 +162,7 @@ export const WalletModal: React.FC<WalletModalProps> = ({ visible, onClose }) =>
                   <Text style={[styles.matrixTag, { color: THEME.colors.alertRed }]}>Frozen</Text>
                 </View>
                 <Text style={[styles.matrixAmount, { color: THEME.colors.alertRed }]}>
-                  ${(wallet?.frozenBalance || 0).toFixed(2)}
+                  {formatPrice(wallet?.frozenBalance || 0)}
                 </Text>
                 <Text style={styles.matrixNote}>Locked during Admin reports</Text>
               </View>

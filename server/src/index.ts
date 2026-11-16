@@ -1,6 +1,7 @@
 import express from 'express';
 import http from 'http';
 import cors from 'cors';
+import path from 'path';
 import { Server } from 'socket.io';
 import dotenv from 'dotenv';
 import locationsRouter from './routes/locations';
@@ -9,7 +10,11 @@ import tradesRouter from './routes/trades';
 import disputesRouter from './routes/disputes';
 import walletsRouter from './routes/wallets';
 import usersRouter from './routes/users';
+import authRouter from './routes/auth';
+import paymentsRouter from './routes/payments';
+import uploadRouter from './routes/upload';
 import { setupSocketHandlers } from './socket';
+import { startEscrowCronJobs } from './cron/escrowJob';
 
 dotenv.config();
 
@@ -20,14 +25,20 @@ const server = http.createServer(app);
 export const io = new Server(server, {
   cors: {
     origin: '*',
-    methods: ['GET', 'POST'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
   },
 });
 
 app.use(cors());
 app.use(express.json());
 
+// Serve uploaded media statically
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
 // API Routes
+app.use('/api/auth', authRouter);
+app.use('/api/payments', paymentsRouter);
+app.use('/api/upload', uploadRouter);
 app.use('/api/locations', locationsRouter);
 app.use('/api/products', productsRouter);
 app.use('/api/trades', tradesRouter);
@@ -36,11 +47,12 @@ app.use('/api/wallets', walletsRouter);
 app.use('/api/users', usersRouter);
 
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', service: 'SafeTrade Marketplace Server' });
+  res.json({ status: 'ok', service: 'SafeTrade Marketplace Server', market: 'Uzbekistan (UZS)' });
 });
 
-// Setup WebSockets
+// Setup WebSockets & Background Cron
 setupSocketHandlers(io);
+startEscrowCronJobs();
 
 const PORT = process.env.PORT || 4000;
 server.listen(PORT, () => {

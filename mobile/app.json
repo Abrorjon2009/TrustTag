@@ -1,22 +1,32 @@
 {
   "expo": {
-    "name": "SafeTrade Marketplace",
-    "slug": "safetrade-marketplace",
+    "name": "TrustTag SafeTrade",
+    "slug": "trusttag",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#FF5000",
+      "resizeMode": "contain"
+    },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.trusttag.market"
     },
     "android": {
-      "package": "com.safetrade.market",
+      "package": "com.trusttag.market",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#FF5000",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "foregroundImage": "./assets/icon.png"
       },
+      "permissions": [
+        "android.permission.INTERNET",
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ],
       "predictiveBackGestureEnabled": false
     },
     "web": {

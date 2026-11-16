@@ -19,6 +19,7 @@ import { api, SOCKET_URL } from '../api/client';
 import { io, Socket } from 'socket.io-client';
 import { ConfirmModal } from './ConfirmModal';
 import { ReviewModal } from './ReviewModal';
+import { formatPrice } from '../utils/formatters';
 
 interface ChatTradeModalProps {
   tradeId: string | null;
@@ -118,7 +119,7 @@ export const ChatTradeModal: React.FC<ChatTradeModalProps> = ({
     setConfirmConfig({
       visible: true,
       title: 'Deposit to Central Safe-Hold',
-      message: `Deposit $${trade.agreedPrice.toFixed(2)} into the Central Bank Account?\n\nFunds will be securely held in the Central Account until you receive and verify the item.`,
+      message: `Deposit ${formatPrice(trade.agreedPrice)} into the Central Bank Account?\n\nFunds will be securely held in the Central Account until you receive and verify the item.`,
       confirmText: 'Deposit Funds',
       type: 'primary',
       onConfirm: () => {
@@ -141,7 +142,7 @@ export const ChatTradeModal: React.FC<ChatTradeModalProps> = ({
     setConfirmConfig({
       visible: true,
       title: 'Confirm Product Received',
-      message: `Are you sure you have received and inspected the item?\n\nThis will IMMEDIATELY release $${trade.agreedPrice.toFixed(2)} from the Central Bank Account to the Seller.`,
+      message: `Are you sure you have received and inspected the item?\n\nThis will IMMEDIATELY release ${formatPrice(trade.agreedPrice)} from the Central Bank Account to the Seller.`,
       confirmText: 'Release Money to Seller',
       type: 'success',
       onConfirm: () => {
@@ -166,7 +167,7 @@ export const ChatTradeModal: React.FC<ChatTradeModalProps> = ({
     setConfirmConfig({
       visible: true,
       title: 'Withdraw Money from Central Hold',
-      message: `Withdraw $${trade.agreedPrice.toFixed(2)} back to your account?\n\nThis will cancel the trade and return the money to your wallet. The seller will receive an urgent alert not to hand over the item.`,
+      message: `Withdraw ${formatPrice(trade.agreedPrice)} back to your account?\n\nThis will cancel the trade and return the money to your wallet. The seller will receive an urgent alert not to hand over the item.`,
       confirmText: 'Withdraw Money',
       type: 'warning',
       onConfirm: () => {

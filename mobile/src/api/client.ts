@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 
-// Support production remote backend (e.g. Railway) via EXPO_PUBLIC_API_URL, fallback to localhost
+// Support production remote backend (Render / Vercel) via EXPO_PUBLIC_API_URL, fallback to localhost
 const ENV_API_URL = process.env.EXPO_PUBLIC_API_URL;
 const BASE_HOST = ENV_API_URL
   ? ENV_API_URL.replace(/\/+$/, '')
@@ -8,14 +8,37 @@ const BASE_HOST = ENV_API_URL
 export const API_BASE_URL = `${BASE_HOST}/api`;
 export const SOCKET_URL = BASE_HOST;
 
+// In-memory token cache (persisted by AuthContext in storage)
+let currentAuthToken: string | null = null;
+
+export function setAuthToken(token: string | null) {
+  currentAuthToken = token;
+}
+
+export function getAuthToken(): string | null {
+  return currentAuthToken;
+}
+
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
+  
+  const headers: Record<string, string> = {
+    ...((options.headers as Record<string, string>) || {}),
+  };
+
+  // Only set Content-Type to JSON if body is NOT FormData
+  if (!(options.body instanceof FormData) && !headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  // Attach JWT Bearer token if user is signed in
+  if (currentAuthToken && !headers['Authorization']) {
+    headers['Authorization'] = `Bearer ${currentAuthToken}`;
+  }
+
   const response = await fetch(url, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
     ...options,
+    headers,
   });
 
   if (!response.ok) {
@@ -27,6 +50,55 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 }
 
 export const api = {
+  // Authentication & Phone SMS OTP
+  sendOtp: (phoneNumber: string) =>
+    request<{ success: boolean; message: string; phoneNumber: string; devCode?: string }>('/auth/send-otp', {
+      method: 'POST',
+      body: JSON.stringify({ phoneNumber }),
+    }),
+
+  verifyOtp: (phoneNumber: string, code: string, fullName?: string) =>
+    request<{ success: boolean; isNewUser: boolean; user: any; token: string; refreshToken: string }>('/auth/verify-otp', {
+      method: 'POST',
+      body: JSON.stringify({ phoneNumber, code, fullName }),
+    }),
+
+  getMe: () => request<any>('/auth/me'),
+
+  updateProfile: (data: { fullName?: string; email?: string; avatarUrl?: string; preferredLang?: string }) =>
+    request<any>('/auth/profile', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  deleteAccount: () =>
+    request<{ success: boolean; message: string }>('/auth/delete-account', {
+      method: 'POST',
+    }),
+
+  // Payments & Escrow Initiation (Payme, Click, Uzcard/Humo, In-App Wallet)
+  initiatePayment: (tradeSessionId: string, paymentMethod: 'WALLET' | 'PAYME' | 'CLICK' | 'UZCARD_HUMO') =>
+    request<any>('/payments/initiate', {
+      method: 'POST',
+      body: JSON.stringify({ tradeSessionId, paymentMethod }),
+    }),
+
+  // Media & Photo Upload
+  uploadImage: async (imageUri: string, filename: string = 'photo.jpg'): Promise<{ url: string }> => {
+    const formData = new FormData();
+    // @ts-ignore - React Native FormData accepts uri/type/name object
+    formData.append('image', {
+      uri: imageUri,
+      type: 'image/jpeg',
+      name: filename,
+    });
+
+    return request<{ success: boolean; url: string }>('/upload', {
+      method: 'POST',
+      body: formData,
+    });
+  },
+
   // Locations
   getLocations: () => request<any[]>('/locations'),
 
@@ -140,4 +212,3 @@ export const api = {
       body: JSON.stringify({ notificationId }),
     }),
 };
-

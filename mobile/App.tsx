@@ -18,6 +18,8 @@ import { Product, TradeSession } from './src/types';
 import { api } from './src/api/client';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { LocationProvider, useLocation } from './src/context/LocationContext';
+import { LanguageProvider, useTranslation } from './src/locales/i18n';
+import { formatPrice, formatPhoneNumber } from './src/utils/formatters';
 
 import { Header } from './src/components/Header';
 import { SearchBar } from './src/components/SearchBar';
@@ -31,13 +33,18 @@ import { ReportModal } from './src/components/ReportModal';
 import { WalletModal } from './src/components/WalletModal';
 import { AdminDisputeModal } from './src/components/AdminDisputeModal';
 import { NotificationModal } from './src/components/NotificationModal';
+import { AuthModal } from './src/components/AuthModal';
 
 function MainApp() {
-  const { currentUser } = useAuth();
+  const { currentUser, logout } = useAuth();
   const { selectedRegion, selectedDistrict, selectedCity } = useLocation();
+  const { lang, setLang, t } = useTranslation();
 
   // Active Bottom Tab: 'MARKETPLACE' | 'MY_TRADES' | 'WALLET' | 'PROFILE'
   const [activeTab, setActiveTab] = useState<'MARKETPLACE' | 'MY_TRADES' | 'WALLET' | 'PROFILE'>('MARKETPLACE');
+
+  // Modals visibility
+  const [authModalVisible, setAuthModalVisible] = useState(false);
 
   // Products & Feed State
   const [products, setProducts] = useState<Product[]>([]);
@@ -192,6 +199,7 @@ function MainApp() {
         onOpenWallet={() => setWalletModalVisible(true)}
         onOpenAdmin={() => setAdminModalVisible(true)}
         onOpenNotifications={() => setNotificationModalVisible(true)}
+        onOpenAuth={() => setAuthModalVisible(true)}
       />
 
       {/* Main Content Area Based on Tab */}
@@ -446,10 +454,10 @@ function MainApp() {
               </View>
               <View style={{ flex: 1, marginLeft: 14 }}>
                 <Text style={styles.profileName}>{currentUser?.fullName}</Text>
-                <Text style={styles.profilePhone}>{currentUser?.phoneNumber}</Text>
+                <Text style={styles.profilePhone}>{formatPhoneNumber(currentUser?.phoneNumber)}</Text>
                 <View style={styles.phoneVerifiedRow}>
                   <Ionicons name="checkmark-circle" size={14} color={THEME.colors.safeGreen} />
-                  <Text style={styles.phoneVerifiedText}>Phone Verified Safe-Trader</Text>
+                  <Text style={styles.phoneVerifiedText}>Phone Verified Safe-Trader (SMS)</Text>
                 </View>
               </View>
             </View>
@@ -493,7 +501,7 @@ function MainApp() {
                   >
                     <Image source={{ uri: fav.images?.[0] }} style={styles.watchlistThumbImg} />
                     <Text style={styles.watchlistThumbTitle} numberOfLines={1}>{fav.title}</Text>
-                    <Text style={styles.watchlistThumbPrice}>${fav.price.toFixed(2)}</Text>
+                    <Text style={styles.watchlistThumbPrice}>{formatPrice(fav.price)}</Text>
                   </TouchableOpacity>
                 ))}
               </ScrollView>
@@ -528,12 +536,53 @@ function MainApp() {
             )}
           </View>
 
+          {/* Language Switcher */}
+          <View style={styles.profileSection}>
+            <View style={styles.sectionTitleRow}>
+              <Ionicons name="globe-outline" size={16} color={THEME.colors.primary} />
+              <Text style={styles.profileSectionTitle}>{t.chooseLanguage}</Text>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+              {[
+                { code: 'uz', label: "O'zbekcha 🇺🇿" },
+                { code: 'ru', label: "Русский 🇷🇺" },
+                { code: 'en', label: "English 🇬🇧" },
+              ].map((item) => (
+                <TouchableOpacity
+                  key={item.code}
+                  style={[
+                    styles.langChip,
+                    lang === item.code && styles.langChipActive,
+                  ]}
+                  onPress={() => setLang(item.code as any)}
+                >
+                  <Text
+                    style={[
+                      styles.langChipText,
+                      lang === item.code && styles.langChipTextActive,
+                    ]}
+                  >
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          <TouchableOpacity
+            style={styles.profileActionBtn}
+            onPress={() => setAuthModalVisible(true)}
+          >
+            <Ionicons name="phone-portrait-outline" size={20} color={THEME.colors.primary} />
+            <Text style={styles.profileActionText}>Telefon Raqam orqali Kirish / Ro'yxatdan O'tish</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity
             style={styles.profileActionBtn}
             onPress={() => setAddProductModalVisible(true)}
           >
             <Ionicons name="add-circle-outline" size={20} color={THEME.colors.primary} />
-            <Text style={styles.profileActionText}>List a Product for Sale</Text>
+            <Text style={styles.profileActionText}>{t.addProduct}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -541,7 +590,27 @@ function MainApp() {
             onPress={() => setWalletModalVisible(true)}
           >
             <Ionicons name="card-outline" size={20} color={THEME.colors.primary} />
-            <Text style={styles.profileActionText}>My Central Bank Wallet</Text>
+            <Text style={styles.profileActionText}>{t.wallet}</Text>
+          </TouchableOpacity>
+
+          {/* Account Deletion (Google Play / App Store Compliance) */}
+          <TouchableOpacity
+            style={[styles.profileActionBtn, { borderColor: '#FEE2E2', backgroundColor: '#FEF2F2' }]}
+            onPress={() => {
+              if (Platform.OS === 'web') {
+                if (window.confirm('Haqiqatan ham hisobingizni o\'chirmoqchimisiz? Bu amalni ortga qaytarib bo\'lmaydi.')) {
+                  api.deleteAccount()
+                    .then(() => {
+                      alert('Hisob muvaffaqiyatli o\'chirildi.');
+                      logout();
+                    })
+                    .catch((err) => alert(err.message));
+                }
+              }
+            }}
+          >
+            <Ionicons name="trash-outline" size={20} color={THEME.colors.alertRed} />
+            <Text style={[styles.profileActionText, { color: THEME.colors.alertRed }]}>{t.deleteAccount}</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -674,17 +743,24 @@ function MainApp() {
           }
         }}
       />
+
+      <AuthModal
+        visible={authModalVisible}
+        onClose={() => setAuthModalVisible(false)}
+      />
     </SafeAreaView>
   );
 }
 
 export default function App() {
   return (
-    <AuthProvider>
-      <LocationProvider>
-        <MainApp />
-      </LocationProvider>
-    </AuthProvider>
+    <LanguageProvider>
+      <AuthProvider>
+        <LocationProvider>
+          <MainApp />
+        </LocationProvider>
+      </AuthProvider>
+    </LanguageProvider>
   );
 }
 
@@ -1075,5 +1151,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     ...THEME.shadows.card,
+  },
+  langChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  langChipActive: {
+    backgroundColor: '#FFF2EB',
+    borderColor: THEME.colors.primary,
+  },
+  langChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#4B5563',
+  },
+  langChipTextActive: {
+    color: THEME.colors.primary,
+    fontWeight: '700',
   },
 });

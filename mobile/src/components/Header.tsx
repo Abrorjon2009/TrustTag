@@ -11,6 +11,7 @@ interface HeaderProps {
   onOpenWallet: () => void;
   onOpenAdmin: () => void;
   onOpenNotifications: () => void;
+  onOpenAuth?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -18,6 +19,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenWallet,
   onOpenAdmin,
   onOpenNotifications,
+  onOpenAuth,
 }) => {
   const { currentUser, users, switchUser } = useAuth();
   const { displayLocationName } = useLocation();
@@ -111,8 +113,19 @@ export const Header: React.FC<HeaderProps> = ({
         >
           <View style={styles.dropdownContainer}>
             <Text style={styles.dropdownTitle}>Switch Active Role / User</Text>
+            <TouchableOpacity
+              style={styles.smsAuthBtn}
+              onPress={() => {
+                setUserDropdownVisible(false);
+                onOpenAuth?.();
+              }}
+            >
+              <Ionicons name="phone-portrait" size={18} color="#FFFFFF" />
+              <Text style={styles.smsAuthBtnText}>Telefon Raqam orqali Kirish (SMS OTP)</Text>
+            </TouchableOpacity>
+
             <Text style={styles.dropdownSubtitle}>
-              Easily test the app from Buyer, Seller, or Admin perspectives:
+              Yoki sinov rollari orasida almashing:
             </Text>
             <FlatList
               data={users}
@@ -304,6 +317,22 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: THEME.colors.textPrimary,
     marginBottom: 4,
+  },
+  smsAuthBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: THEME.colors.primary,
+    paddingVertical: 10,
+    borderRadius: 12,
+    marginTop: 8,
+    marginBottom: 12,
+    gap: 8,
+  },
+  smsAuthBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
   },
   dropdownSubtitle: {
     fontSize: 12,
