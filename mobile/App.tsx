@@ -757,7 +757,11 @@ export default function App() {
     <LanguageProvider>
       <AuthProvider>
         <LocationProvider>
-          <MainApp />
+          <View style={styles.webDesktopBackground}>
+            <View style={styles.mobilePhoneFrame}>
+              <MainApp />
+            </View>
+          </View>
         </LocationProvider>
       </AuthProvider>
     </LanguageProvider>
@@ -765,9 +769,31 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
+  webDesktopBackground: {
+    flex: 1,
+    backgroundColor: Platform.OS === 'web' ? '#0F172A' : '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+    height: Platform.OS === 'web' ? '100vh' : '100%',
+  },
+  mobilePhoneFrame: {
+    width: '100%',
+    maxWidth: 440,
+    height: '100%',
+    maxHeight: Platform.OS === 'web' ? '96vh' : '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: Platform.OS === 'web' ? 32 : 0,
+    overflow: 'hidden',
+    borderWidth: Platform.OS === 'web' ? 8 : 0,
+    borderColor: '#1E293B',
+    elevation: 10,
+  },
   safeArea: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+    width: '100%',
+    height: '100%',
   },
   feedScroll: {
     flex: 1,
