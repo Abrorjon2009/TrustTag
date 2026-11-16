@@ -29,7 +29,7 @@ export function getTradeBannerInfo(trade: any, currentUserId?: string) {
         badgeBg: '#DEF7EC',
         badgeText: '#03543F',
         title: 'Money in Central Safe Account',
-        message: `Customer deposited $${trade.agreedPrice.toFixed(2)} into Central Account. Safe to deliver the product!`,
+        message: `Customer deposited ${trade.agreedPrice.toLocaleString()} so'm into Central Account. Safe to deliver the product!`,
         canDeposit: false,
         canConfirmReceived: Boolean(currentUserId && trade.buyerId === currentUserId),
         canWithdraw: Boolean(currentUserId && trade.buyerId === currentUserId),
@@ -42,7 +42,7 @@ export function getTradeBannerInfo(trade: any, currentUserId?: string) {
         badgeBg: '#E1EFFE',
         badgeText: '#1E429F',
         title: 'Trade Completed',
-        message: `Customer confirmed receipt. $${trade.agreedPrice.toFixed(2)} has been sent to the Seller.`,
+        message: `Customer confirmed receipt. ${trade.agreedPrice.toLocaleString()} so'm has been sent to the Seller.`,
         canDeposit: false,
         canConfirmReceived: false,
         canWithdraw: false,
@@ -137,7 +137,7 @@ router.post('/start', async (req, res) => {
         data: {
           tradeSessionId: trade.id,
           senderId: buyerId,
-          messageText: `Started Safe Trade for "${product.title}" at agreed price of $${parseFloat(agreedPrice).toFixed(2)}.`,
+          messageText: `Started Safe Trade for "${product.title}" at agreed price of ${parseFloat(agreedPrice).toLocaleString()} so'm.`,
           isSystemEvent: true,
           systemEventType: 'TERMS_AGREED',
         },
@@ -312,7 +312,7 @@ router.post('/:id/deposit', async (req, res) => {
           amount: price,
           txType: 'ESCROW_LOCK',
           idempotencyKey: `deposit_${trade.id}_${Date.now()}`,
-          notes: `Customer deposited $${price.toFixed(2)} to Central Safe Account for product ${trade.product.title}`,
+          notes: `Customer deposited ${price.toLocaleString()} so'm to Central Safe Account for product ${trade.product.title}`,
         },
       });
 
@@ -335,7 +335,7 @@ router.post('/:id/deposit', async (req, res) => {
         data: {
           tradeSessionId: trade.id,
           senderId: buyerId,
-          messageText: `🛡️ OFFICIAL SYSTEM NOTICE: Customer deposited $${price.toFixed(2)} into the Central Bank Account. The funds are safely secured. Seller is now cleared to deliver the item.`,
+          messageText: `🛡️ OFFICIAL SYSTEM NOTICE: Customer deposited ${price.toLocaleString()} so'm into the Central Bank Account. The funds are safely secured. Seller is now cleared to deliver the item.`,
           isSystemEvent: true,
           systemEventType: 'MONEY_DEPOSITED',
         },
@@ -346,7 +346,7 @@ router.post('/:id/deposit', async (req, res) => {
         data: {
           userId: trade.sellerId,
           title: '🛡️ Safe-Hold Deposit Received!',
-          message: `Customer deposited $${price.toFixed(2)} into Central Account for "${trade.product.title}". Safe to deliver now!`,
+          message: `Customer deposited ${price.toLocaleString()} so'm into Central Account for "${trade.product.title}". Safe to deliver now!`,
           type: 'TRADE_DEPOSIT',
           linkId: trade.id,
         },
@@ -419,7 +419,7 @@ router.post('/:id/receive', async (req, res) => {
           amount: price,
           txType: 'ESCROW_RELEASE_PAYOUT',
           idempotencyKey: `release_${trade.id}_${Date.now()}`,
-          notes: `Central Account disbursed $${price.toFixed(2)} to Seller following buyer receipt confirmation.`,
+          notes: `Central Account disbursed ${price.toLocaleString()} so'm to Seller following buyer receipt confirmation.`,
         },
       });
 
@@ -452,7 +452,7 @@ router.post('/:id/receive', async (req, res) => {
         data: {
           tradeSessionId: trade.id,
           senderId: buyerId,
-          messageText: `🎉 OFFICIAL SYSTEM NOTICE: Customer confirmed product received! $${price.toFixed(2)} has been transferred from the Central Bank Account to Seller's balance. Trade is completed!`,
+          messageText: `🎉 OFFICIAL SYSTEM NOTICE: Customer confirmed product received! ${price.toLocaleString()} so'm has been transferred from the Central Bank Account to Seller's balance. Trade is completed!`,
           isSystemEvent: true,
           systemEventType: 'PRODUCT_RECEIVED',
         },
@@ -463,7 +463,7 @@ router.post('/:id/receive', async (req, res) => {
         data: {
           userId: trade.sellerId,
           title: '🎉 Product Received & Funds Released!',
-          message: `Customer confirmed receipt of "${trade.product.title}". $${price.toFixed(2)} has been credited to your available balance!`,
+          message: `Customer confirmed receipt of "${trade.product.title}". ${price.toLocaleString()} so'm has been credited to your available balance!`,
           type: 'TRADE_RECEIVED',
           linkId: trade.id,
         },
@@ -531,7 +531,7 @@ router.post('/:id/withdraw', async (req, res) => {
           amount: price,
           txType: 'ESCROW_REFUND_WITHDRAWAL',
           idempotencyKey: `withdraw_${trade.id}_${Date.now()}`,
-          notes: `Customer withdrew $${price.toFixed(2)} from Central Account back to wallet.`,
+          notes: `Customer withdrew ${price.toLocaleString()} so'm from Central Account back to wallet.`,
         },
       });
 
@@ -554,7 +554,7 @@ router.post('/:id/withdraw', async (req, res) => {
         data: {
           tradeSessionId: trade.id,
           senderId: buyerId,
-          messageText: `⚠️ URGENT ALERT: Customer has withdrawn $${price.toFixed(2)} from the Central Safe Account! Trade cancelled — Seller DO NOT hand over or send the product!`,
+          messageText: `⚠️ URGENT ALERT: Customer has withdrawn ${price.toLocaleString()} so'm from the Central Safe Account! Trade cancelled — Seller DO NOT hand over or send the product!`,
           isSystemEvent: true,
           systemEventType: 'MONEY_WITHDRAWN',
         },
@@ -565,7 +565,7 @@ router.post('/:id/withdraw', async (req, res) => {
         data: {
           userId: trade.sellerId,
           title: '⚠️ URGENT: Customer Withdrew Money!',
-          message: `Customer withdrew $${price.toFixed(2)} from Central Account for "${trade.product.title}". Trade cancelled — DO NOT hand over or send the product!`,
+          message: `Customer withdrew ${price.toLocaleString()} so'm from Central Account for "${trade.product.title}". Trade cancelled — DO NOT hand over or send the product!`,
           type: 'TRADE_WITHDRAWN',
           linkId: trade.id,
         },

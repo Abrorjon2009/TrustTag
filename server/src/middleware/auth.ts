@@ -56,3 +56,4 @@ export async function optionalAuth(req: AuthRequest, res: Response, next: NextFu
   }
   next();
 }
+

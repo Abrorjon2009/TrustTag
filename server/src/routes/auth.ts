@@ -253,3 +253,4 @@ router.post('/delete-account', requireAuth, async (req: AuthRequest, res) => {
 });
 
 export default router;
+
