@@ -19,6 +19,7 @@ import { api, SOCKET_URL } from '../api/client';
 import { io, Socket } from 'socket.io-client';
 import { ConfirmModal } from './ConfirmModal';
 import { ReviewModal } from './ReviewModal';
+import { PaymentModal } from './PaymentModal';
 import { formatPrice } from '../utils/formatters';
 
 interface ChatTradeModalProps {
@@ -59,6 +60,7 @@ export const ChatTradeModal: React.FC<ChatTradeModalProps> = ({
   });
 
   const [reviewModalVisible, setReviewModalVisible] = useState(false);
+  const [paymentModalVisible, setPaymentModalVisible] = useState(false);
 
   const socketRef = useRef<Socket | null>(null);
   const scrollViewRef = useRef<ScrollView | null>(null);
@@ -113,27 +115,10 @@ export const ChatTradeModal: React.FC<ChatTradeModalProps> = ({
     setInputText('');
   };
 
-  // Money Action 1: Deposit to Central Account
+  // Money Action 1: Deposit to Central Account (Opens Real Uzbekistan Payment Sheet)
   const handleDeposit = () => {
     if (!trade || !currentUser) return;
-    setConfirmConfig({
-      visible: true,
-      title: 'Deposit to Central Safe-Hold',
-      message: `Deposit ${formatPrice(trade.agreedPrice)} into the Central Bank Account?\n\nFunds will be securely held in the Central Account until you receive and verify the item.`,
-      confirmText: 'Deposit Funds',
-      type: 'primary',
-      onConfirm: () => {
-        setConfirmConfig((prev) => ({ ...prev, visible: false }));
-        setIsActionLoading(true);
-        api
-          .depositTrade(trade.id, currentUser.id)
-          .then(() => {
-            loadTradeData();
-          })
-          .catch((err) => alert(`Deposit failed: ${err.message}`))
-          .finally(() => setIsActionLoading(false));
-      },
-    });
+    setPaymentModalVisible(true);
   };
 
   // Money Action 2: Product Received (Release to Seller)
@@ -428,6 +413,17 @@ export const ChatTradeModal: React.FC<ChatTradeModalProps> = ({
           targetUserName={otherPartyName}
           onClose={() => setReviewModalVisible(false)}
           onReviewSubmitted={() => {
+            loadTradeData();
+          }}
+        />
+
+        {/* Real Uzbekistan Payment Sheet Modal (Uzcard, Humo, Payme, Click) */}
+        <PaymentModal
+          visible={paymentModalVisible}
+          amount={trade?.agreedPrice || 0}
+          tradeSessionId={trade?.id}
+          onClose={() => setPaymentModalVisible(false)}
+          onPaymentSuccess={() => {
             loadTradeData();
           }}
         />

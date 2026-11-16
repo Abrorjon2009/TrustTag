@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { api } from '../api/client';
 import { LedgerEntry, Wallet } from '../types';
 import { formatPrice } from '../utils/formatters';
+import { PaymentModal } from './PaymentModal';
 
 interface WalletModalProps {
   visible: boolean;
@@ -21,11 +22,12 @@ export const WalletModal: React.FC<WalletModalProps> = ({ visible, onClose }) =>
   const [isLoading, setIsLoading] = useState(true);
 
   // Top-up & Withdraw modal state
-  const [topupAmount, setTopupAmount] = useState('200');
-  const [withdrawAmount, setWithdrawAmount] = useState('100');
-  const [bankCard, setBankCard] = useState('8600 •••• •••• 4521');
+  const [topupAmount, setTopupAmount] = useState('100000');
+  const [withdrawAmount, setWithdrawAmount] = useState('50000');
+  const [bankCard, setBankCard] = useState('8600 4589 1204 7782');
   const [showTopupDialog, setShowTopupDialog] = useState(false);
   const [showWithdrawDialog, setShowWithdrawDialog] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
   const loadWallet = async () => {
@@ -49,31 +51,16 @@ export const WalletModal: React.FC<WalletModalProps> = ({ visible, onClose }) =>
     }
   }, [visible, currentUser]);
 
-  const handleTopup = async () => {
-    if (!currentUser || !topupAmount) return;
-    setIsProcessing(true);
-    try {
-      await api.topupWallet(currentUser.id, parseFloat(topupAmount));
-      alert(`Successfully added $${topupAmount} to your wallet!`);
-      setShowTopupDialog(false);
-      loadWallet();
-    } catch (err: any) {
-      alert(`Topup failed: ${err.message}`);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
   const handleWithdrawBank = async () => {
     if (!currentUser || !withdrawAmount) return;
     setIsProcessing(true);
     try {
       await api.withdrawBank(currentUser.id, parseFloat(withdrawAmount), bankCard);
-      alert(`Transferred $${withdrawAmount} to Bank Card!`);
+      alert(`${formatPrice(parseFloat(withdrawAmount))} bank kartangizga (${bankCard}) muvaffaqiyatli o'tkazildi!`);
       setShowWithdrawDialog(false);
       loadWallet();
     } catch (err: any) {
-      alert(`Withdrawal failed: ${err.message}`);
+      alert(`Chiqarishda xatolik: ${err.message}`);
     } finally {
       setIsProcessing(false);
     }
@@ -211,7 +198,7 @@ export const WalletModal: React.FC<WalletModalProps> = ({ visible, onClose }) =>
                         tx.isCredit ? styles.txAmountPlus : styles.txAmountMinus,
                       ]}
                     >
-                      {tx.isCredit ? `+$${tx.amount.toFixed(2)}` : `-$${tx.amount.toFixed(2)}`}
+                      {tx.isCredit ? `+${formatPrice(tx.amount)}` : `-${formatPrice(tx.amount)}`}
                     </Text>
                   </View>
                 ))
@@ -222,74 +209,86 @@ export const WalletModal: React.FC<WalletModalProps> = ({ visible, onClose }) =>
           </ScrollView>
         )}
 
-        {/* Topup Dialog */}
+        {/* Topup Amount & Payment Sheet Modal */}
         <Modal visible={showTopupDialog} transparent animationType="fade">
           <View style={styles.dialogOverlay}>
             <View style={styles.dialogBox}>
-              <Text style={styles.dialogTitle}>Add Money to Central Account</Text>
+              <Text style={styles.dialogTitle}>Hamyonni To'ldirish</Text>
               <Text style={styles.dialogDesc}>
-                Deposit money from your bank card into your wallet for instant safe trade purchases:
+                Uzcard, Humo, Payme yoki Click orqali hisobingizni to'ldiring:
               </Text>
               <TextInput
                 style={styles.dialogInput}
                 keyboardType="numeric"
                 value={topupAmount}
                 onChangeText={setTopupAmount}
-                placeholder="Amount in USD"
+                placeholder="Summa (masalan: 100 000)"
               />
               <View style={styles.dialogBtns}>
                 <TouchableOpacity
                   style={styles.dialogCancelBtn}
                   onPress={() => setShowTopupDialog(false)}
                 >
-                  <Text style={styles.dialogCancelText}>Cancel</Text>
+                  <Text style={styles.dialogCancelText}>Bekor qilish</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.dialogActionBtn}
-                  onPress={handleTopup}
-                  disabled={isProcessing}
+                  onPress={() => {
+                    setShowTopupDialog(false);
+                    setShowPaymentModal(true);
+                  }}
                 >
-                  <Text style={styles.dialogActionText}>Confirm Top-Up</Text>
+                  <Text style={styles.dialogActionText}>To'lov Usulini Tanlash</Text>
                 </TouchableOpacity>
               </View>
             </View>
           </View>
         </Modal>
 
+        {/* Real Uzbekistan Payment Sheet */}
+        <PaymentModal
+          visible={showPaymentModal}
+          amount={parseFloat(topupAmount) || 100000}
+          onClose={() => setShowPaymentModal(false)}
+          onPaymentSuccess={() => {
+            loadWallet();
+          }}
+        />
+
         {/* Withdraw to Bank Dialog */}
         <Modal visible={showWithdrawDialog} transparent animationType="fade">
           <View style={styles.dialogOverlay}>
             <View style={styles.dialogBox}>
-              <Text style={styles.dialogTitle}>Withdraw Money to Bank</Text>
+              <Text style={styles.dialogTitle}>Kartaga Pul Chiqarish</Text>
               <Text style={styles.dialogDesc}>
-                Transfer your available funds directly back to your personal debit or credit card:
+                Mablag'ingizni to'g'ridan-to'g'ri Uzcard yoki Humo kartangizga o'tkazing:
               </Text>
               <TextInput
                 style={styles.dialogInput}
                 keyboardType="numeric"
                 value={withdrawAmount}
                 onChangeText={setWithdrawAmount}
-                placeholder="Amount in USD"
+                placeholder="Summa (so'mda)"
               />
               <TextInput
                 style={[styles.dialogInput, { marginTop: 8 }]}
                 value={bankCard}
                 onChangeText={setBankCard}
-                placeholder="Card Number"
+                placeholder="Karta raqami (8600... yoki 9860...)"
               />
               <View style={styles.dialogBtns}>
                 <TouchableOpacity
                   style={styles.dialogCancelBtn}
                   onPress={() => setShowWithdrawDialog(false)}
                 >
-                  <Text style={styles.dialogCancelText}>Cancel</Text>
+                  <Text style={styles.dialogCancelText}>Bekor qilish</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.dialogActionBtn}
                   onPress={handleWithdrawBank}
                   disabled={isProcessing}
                 >
-                  <Text style={styles.dialogActionText}>Withdraw</Text>
+                  <Text style={styles.dialogActionText}>Kartaga Yuborish</Text>
                 </TouchableOpacity>
               </View>
             </View>
