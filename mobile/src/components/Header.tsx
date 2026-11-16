@@ -11,6 +11,7 @@ interface HeaderProps {
   onOpenWallet: () => void;
   onOpenAdmin: () => void;
   onOpenNotifications: () => void;
+  onOpenChats?: () => void;
   onOpenAuth?: () => void;
 }
 
@@ -19,6 +20,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenWallet,
   onOpenAdmin,
   onOpenNotifications,
+  onOpenChats,
   onOpenAuth,
 }) => {
   const { currentUser, users, switchUser } = useAuth();
@@ -57,8 +59,14 @@ export const Header: React.FC<HeaderProps> = ({
           <Ionicons name="chevron-down" size={12} color={THEME.colors.textSecondary} />
         </TouchableOpacity>
 
-        {/* Right Action Icons: Wallet, Notifications & User Switcher */}
+        {/* Right Action Icons: Chats, Notifications, Wallet & User Switcher */}
         <View style={styles.actionsRight}>
+          {onOpenChats && (
+            <TouchableOpacity style={styles.iconButton} onPress={onOpenChats} accessibilityLabel="Open Chats">
+              <Ionicons name="chatbubbles-outline" size={20} color={THEME.colors.textPrimary} />
+            </TouchableOpacity>
+          )}
+
           <TouchableOpacity style={styles.iconButton} onPress={onOpenNotifications}>
             <Ionicons name="notifications-outline" size={20} color={THEME.colors.textPrimary} />
             {unreadCount > 0 && (

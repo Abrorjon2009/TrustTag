@@ -231,8 +231,12 @@ router.get('/user/:userId', async (req, res) => {
       },
       include: {
         product: true,
-        buyer: { select: { id: true, fullName: true, avatarUrl: true } },
-        seller: { select: { id: true, fullName: true, avatarUrl: true } },
+        buyer: { select: { id: true, fullName: true, avatarUrl: true, phoneNumber: true } },
+        seller: { select: { id: true, fullName: true, avatarUrl: true, phoneNumber: true } },
+        chatMessages: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
       },
       orderBy: { updatedAt: 'desc' },
     });
@@ -250,6 +254,42 @@ router.get('/user/:userId', async (req, res) => {
   } catch (error) {
     console.error('Error fetching user trades:', error);
     res.status(500).json({ error: 'Failed to fetch user trades' });
+  }
+});
+
+// GET /api/trades/product/:productId - List all trades/chats for a specific product
+router.get('/product/:productId', async (req, res) => {
+  try {
+    const { productId } = req.params;
+    const currentUserId = req.query.currentUserId as string | undefined;
+
+    const trades = await prisma.tradeSession.findMany({
+      where: { productId },
+      include: {
+        product: true,
+        buyer: { select: { id: true, fullName: true, avatarUrl: true, phoneNumber: true } },
+        seller: { select: { id: true, fullName: true, avatarUrl: true, phoneNumber: true } },
+        chatMessages: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    const formatted = trades.map((t) => ({
+      ...t,
+      product: {
+        ...t.product,
+        images: JSON.parse(t.product.images || '[]'),
+      },
+      banner: getTradeBannerInfo(t, currentUserId),
+    }));
+
+    res.json(formatted);
+  } catch (error) {
+    console.error('Error fetching product trades:', error);
+    res.status(500).json({ error: 'Failed to fetch product trades' });
   }
 });
 

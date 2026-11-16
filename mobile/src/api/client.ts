@@ -148,6 +148,9 @@ export const api = {
 
   getUserTrades: (userId: string) => request<any[]>(`/trades/user/${userId}`),
 
+  getProductTrades: (productId: string, currentUserId?: string) =>
+    request<any[]>(`/trades/product/${productId}${currentUserId ? `?currentUserId=${currentUserId}` : ''}`),
+
   depositTrade: (id: string, buyerId: string) =>
     request<any>(`/trades/${id}/deposit`, {
       method: 'POST',
