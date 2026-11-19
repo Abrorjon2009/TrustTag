@@ -99,6 +99,16 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  checkTelegramSession: (sessionId: string) =>
+    request<{
+      authenticated: boolean;
+      user?: any;
+      token?: string;
+      refreshToken?: string;
+      isNewUser?: boolean;
+      phoneNumber?: string | null;
+    }>(`/auth/telegram/check-session?sessionId=${encodeURIComponent(sessionId)}`),
+
   // Option C: Real Email OTP (100% Free Verification Code)
   sendEmailOtp: (data: { email: string; fullName?: string; mode?: 'LOGIN' | 'SIGNUP' }) =>
     request<{ success: boolean; message: string; email: string; isNewUser: boolean; devCode?: string }>('/auth/email/send-otp', {

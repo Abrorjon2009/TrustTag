@@ -67,10 +67,17 @@ export const AuthModal: React.FC<AuthModalProps> = ({ visible, onClose }) => {
   const [tempClientId, setTempClientId] = useState('');
 
   // Telegram state (Official Telegram Auth & Bot)
+  const defaultTgBot = (process.env.EXPO_PUBLIC_TELEGRAM_BOT_USERNAME || 'TrustTagUzAuthBot').replace(/^@/, '');
   const [telegramMode, setTelegramMode] = useState<'LOGIN' | 'SIGNUP'>('LOGIN');
-  const [telegramBotUsername, setTelegramBotUsername] = useState('TrustTagAuthBot');
+  const [telegramBotUsername, setTelegramBotUsername] = useState(defaultTgBot);
   const [showTelegramConfig, setShowTelegramConfig] = useState(false);
-  const [tempTelegramBot, setTempTelegramBot] = useState('TrustTagAuthBot');
+  const [tempTelegramBot, setTempTelegramBot] = useState(defaultTgBot);
+  const [waitingTelegramSession, setWaitingTelegramSession] = useState<{
+    sessionId: string;
+    botUrl: string;
+    type: 'AUTH' | 'PHONE';
+    mode?: 'LOGIN' | 'SIGNUP';
+  } | null>(null);
 
   const [isLoading, setIsLoading] = useState(false);
 
@@ -91,6 +98,45 @@ export const AuthModal: React.FC<AuthModalProps> = ({ visible, onClose }) => {
     }
     return () => clearInterval(timer);
   }, [emailStep, emailCountdown]);
+
+  // Telegram Session Poller (100% Free, Real-time verification)
+  useEffect(() => {
+    if (!waitingTelegramSession) return;
+    const { sessionId, type } = waitingTelegramSession;
+    let isMounted = true;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await api.checkTelegramSession(sessionId);
+        if (!isMounted) return;
+        if (res && res.authenticated && res.token && res.user) {
+          clearInterval(interval);
+          setWaitingTelegramSession(null);
+          await loginWithToken(res.user, res.token);
+          const successTitle = type === 'PHONE' ? 'Telefon Tasdiqlandi' : 'Telegram Tasdiqlandi';
+          const successMsg = res.isNewUser
+            ? `Assalomu alaykum, ${res.user.fullName}! Sizga 1,200,000 UZS start balansi berildi.`
+            : `Assalomu alaykum, ${res.user.fullName}! Tizimga xush kelibsiz.`;
+          Alert.alert(successTitle, successMsg);
+          handleClose();
+        }
+      } catch (err) {
+        // Continue polling silently
+      }
+    }, 1500);
+
+    const timeout = setTimeout(() => {
+      if (isMounted) {
+        clearInterval(interval);
+      }
+    }, 180000); // 3 minutes timeout
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+      clearTimeout(timeout);
+    };
+  }, [waitingTelegramSession]);
 
   // Google initialization & Client ID sync
   useEffect(() => {
@@ -206,7 +252,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ visible, onClose }) => {
   // 3. Official Telegram Auth Handlers
   const handleTelegramAuth = async (modeOverride?: 'LOGIN' | 'SIGNUP') => {
     const targetMode = modeOverride || telegramMode;
-    const botUser = telegramBotUsername.replace(/^@/, '').trim();
+    const botUser = telegramBotUsername.replace(/^@/, '').trim() || defaultTgBot;
 
     if (!botUser) {
       setShowTelegramConfig(true);
@@ -217,43 +263,50 @@ export const AuthModal: React.FC<AuthModalProps> = ({ visible, onClose }) => {
     const sessionId = `tt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const botUrl = `https://t.me/${botUser}?start=auth_${sessionId}`;
 
+    setWaitingTelegramSession({
+      sessionId,
+      botUrl,
+      type: 'AUTH',
+      mode: targetMode,
+    });
+
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
       window.open(botUrl, '_blank');
-      Alert.alert(
-        'Telegram Ochildi',
-        `Telegram botimiz (@${botUser}) yangi oynada ochildi. Botda "Start" tugmasini bosing va akkauntingizga kiring.`,
-        [
-          {
-            text: 'Sinov hisobida davom etish',
-            onPress: async () => {
-              setIsLoading(true);
-              try {
-                const res = await api.loginWithTelegram({
-                  telegramId: `tg_${sessionId}`,
-                  username: `trader_${sessionId.slice(-4)}`,
-                  fullName: 'Telegram Foydalanuvchi',
-                  mode: targetMode,
-                });
-                await loginWithToken(res.user, res.token);
-                Alert.alert('Muvaffaqiyatli', res.message || 'Telegram orqali tizimga kirdingiz');
-                handleClose();
-              } catch (e: any) {
-                Alert.alert('Xatolik', e.message);
-              } finally {
-                setIsLoading(false);
-              }
-            },
-          },
-          { text: 'Yopish', style: 'cancel' },
-        ]
-      );
+    } else {
+      try {
+        await Linking.openURL(botUrl);
+      } catch (e) {
+        Alert.alert('Telegram topilmadi', 'Qurilmangizda Telegram ilovasi o\'rnatilganligini tekshiring');
+      }
+    }
+  };
+
+  const handleTelegramPhoneAuth = async () => {
+    const botUser = telegramBotUsername.replace(/^@/, '').trim() || defaultTgBot;
+
+    if (!botUser) {
+      setShowTelegramConfig(true);
+      Alert.alert('Telegram Bot Kerak', 'Iltimos, Telegram Bot @username kiriting');
       return;
     }
 
-    try {
-      await Linking.openURL(botUrl);
-    } catch (e) {
-      Alert.alert('Telegram topilmadi', 'Qurilmangizda Telegram ilovasi o\'rnatilganligini tekshiring');
+    const sessionId = `phone_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const botUrl = `https://t.me/${botUser}?start=phone_${sessionId}`;
+
+    setWaitingTelegramSession({
+      sessionId,
+      botUrl,
+      type: 'PHONE',
+    });
+
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      window.open(botUrl, '_blank');
+    } else {
+      try {
+        await Linking.openURL(botUrl);
+      } catch (e) {
+        Alert.alert('Telegram topilmadi', 'Qurilmangizda Telegram ilovasi o\'rnatilganligini tekshiring');
+      }
     }
   };
 
@@ -374,6 +427,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ visible, onClose }) => {
   };
 
   const handleClose = () => {
+    setWaitingTelegramSession(null);
     setStep('PHONE');
     setOtpCode('');
     setDevCode(null);
@@ -381,6 +435,59 @@ export const AuthModal: React.FC<AuthModalProps> = ({ visible, onClose }) => {
     setEmailOtpCode('');
     setEmailDevCode(null);
     onClose();
+  };
+
+  const renderTelegramWaitingView = () => {
+    if (!waitingTelegramSession) return null;
+    const isPhone = waitingTelegramSession.type === 'PHONE';
+    const botUser = telegramBotUsername || defaultTgBot;
+
+    return (
+      <View style={styles.waitingCard}>
+        <View style={styles.waitingTelegramCircle}>
+          <ActivityIndicator size="large" color="#0088CC" style={styles.waitingSpinner} />
+          <Ionicons name="paper-plane" size={26} color="#0088CC" />
+        </View>
+
+        <Text style={styles.waitingTitle}>
+          {isPhone
+            ? 'Telefon raqam tasdiqlanishi kutilmoqda...'
+            : 'Telegram orqali tasdiqlash kutilmoqda...'}
+        </Text>
+
+        <Text style={styles.waitingSubtitle}>
+          {isPhone
+            ? `Telegram botimizda (@${botUser}) pastdagi "📱 Telefon raqamimni yuborish" tugmasini bosing.`
+            : `Telegram botimizda (@${botUser}) "Start" (Boshlash) tugmasini bosing.`}
+        </Text>
+
+        <View style={styles.waitingStatusPill}>
+          <View style={styles.waitingPulseDot} />
+          <Text style={styles.waitingStatusText}>Botdan javob kutilmoqda (avtomatik kiradi)...</Text>
+        </View>
+
+        <TouchableOpacity
+          style={styles.waitingOpenBtn}
+          onPress={() => {
+            if (Platform.OS === 'web' && typeof window !== 'undefined') {
+              window.open(waitingTelegramSession.botUrl, '_blank');
+            } else {
+              Linking.openURL(waitingTelegramSession.botUrl);
+            }
+          }}
+        >
+          <Ionicons name="paper-plane" size={18} color="#fff" />
+          <Text style={styles.waitingOpenBtnText}>Telegram botni ochish</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.waitingCancelBtn}
+          onPress={() => setWaitingTelegramSession(null)}
+        >
+          <Text style={styles.waitingCancelBtnText}>Bekor qilish</Text>
+        </TouchableOpacity>
+      </View>
+    );
   };
 
   return (
@@ -486,10 +593,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ visible, onClose }) => {
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
             {/* ==================================================== */}
-            {/* METHOD 1: PHONE NUMBER (SMS OTP)                    */}
+            {/* METHOD 1: PHONE NUMBER (SMS OTP & TELEGRAM CONTACT) */}
             {/* ==================================================== */}
             {method === 'PHONE' && (
-              step === 'PHONE' ? (
+              waitingTelegramSession ? (
+                renderTelegramWaitingView()
+              ) : step === 'PHONE' ? (
                 <View style={styles.form}>
                   <Text style={styles.inputLabel}>{t.phoneLabel}</Text>
                   <View style={styles.phoneInputContainer}>
@@ -526,6 +635,27 @@ export const AuthModal: React.FC<AuthModalProps> = ({ visible, onClose }) => {
                     ) : (
                       <Text style={styles.primaryBtnText}>{t.sendCode}</Text>
                     )}
+                  </TouchableOpacity>
+
+                  {/* Free Telegram Phone Verification (No SMS cost) */}
+                  <View style={styles.orDividerRow}>
+                    <View style={styles.dividerLine} />
+                    <Text style={styles.dividerOrText}>yoki bepul va SMS-siz</Text>
+                    <View style={styles.dividerLine} />
+                  </View>
+
+                  <TouchableOpacity
+                    style={styles.telegramPhoneBtn}
+                    onPress={handleTelegramPhoneAuth}
+                  >
+                    <View style={styles.telegramIconCircleSmall}>
+                      <Ionicons name="paper-plane" size={16} color="#fff" />
+                    </View>
+                    <View style={{ flex: 1, marginLeft: 10 }}>
+                      <Text style={styles.telegramPhoneBtnTitle}>Telegram orqali 1-bosishda tasdiqlash</Text>
+                      <Text style={styles.telegramPhoneBtnSubtitle}>100% Bepul, SMS kutmasdan va avtomatik</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={16} color="#0088CC" />
                   </TouchableOpacity>
 
                   {/* Quick Demo Accounts */}
@@ -764,7 +894,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ visible, onClose }) => {
             {/* METHOD 3: TELEGRAM LOGIN & SIGN-UP (OFFICIAL OAUTH)  */}
             {/* ==================================================== */}
             {method === 'TELEGRAM' && (
-              <View style={styles.form}>
+              waitingTelegramSession ? (
+                renderTelegramWaitingView()
+              ) : (
+                <View style={styles.form}>
                 {/* 1. Mode Switch: LOG IN vs SIGN UP */}
                 <View style={styles.googleModeSwitch}>
                   <TouchableOpacity
@@ -891,6 +1024,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ visible, onClose }) => {
                   )}
                 </View>
               </View>
+              )
             )}
 
             {/* ==================================================== */}
@@ -1529,6 +1663,141 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#0369A1',
     lineHeight: 15,
+  },
+  waitingCard: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#BAE6FD',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    marginVertical: 10,
+    shadowColor: '#0088CC',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  waitingTelegramCircle: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: '#E0F2FE',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+    position: 'relative',
+  },
+  waitingSpinner: {
+    position: 'absolute',
+    transform: [{ scale: 1.4 }],
+  },
+  waitingTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#0F172A',
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  waitingSubtitle: {
+    fontSize: 13,
+    color: '#475569',
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 16,
+  },
+  waitingStatusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    marginBottom: 18,
+  },
+  waitingPulseDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#16A34A',
+    marginRight: 8,
+  },
+  waitingStatusText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#15803D',
+  },
+  waitingOpenBtn: {
+    backgroundColor: '#0088CC',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 48,
+    borderRadius: 12,
+    width: '100%',
+    marginBottom: 10,
+    gap: 8,
+  },
+  waitingOpenBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  waitingCancelBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  waitingCancelBtnText: {
+    color: '#64748B',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  orDividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 14,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E2E8F0',
+  },
+  dividerOrText: {
+    marginHorizontal: 10,
+    fontSize: 12,
+    color: '#94A3B8',
+    fontWeight: '500',
+  },
+  telegramPhoneBtn: {
+    backgroundColor: '#F0F9FF',
+    borderWidth: 1.5,
+    borderColor: '#BAE6FD',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  telegramIconCircleSmall: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#0088CC',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  telegramPhoneBtnTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0369A1',
+  },
+  telegramPhoneBtnSubtitle: {
+    fontSize: 11,
+    color: '#0284C7',
+    marginTop: 2,
   },
   emailMethodToggle: {
     flexDirection: 'row',

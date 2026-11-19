@@ -6,6 +6,8 @@ import { prisma } from '../db';
 import { JWT_SECRET, requireAuth, AuthRequest } from '../middleware/auth';
 import { hashPassword, verifyPassword } from '../utils/security';
 import { sendOtpEmail } from '../services/emailService';
+import { sendSmsCode } from '../services/smsService';
+import { getTelegramSession } from '../services/telegramBotService';
 
 const router = Router();
 const googleOAuthClient = new OAuth2Client();
@@ -217,14 +219,14 @@ router.post('/send-otp', async (req, res) => {
       },
     });
 
-    console.log(`📱 SMS OTP sent to ${cleanPhone}: [${code}]`);
+    // Send real SMS (via Eskiz.uz if configured, or dev mode fallback)
+    const smsResult = await sendSmsCode(cleanPhone, code);
 
-    // In production, integrate Eskiz / PlayMobile / Firebase SMS API here.
-    // For seamless free testing, return devCode in response
     res.json({
       success: true,
-      message: `Verification code sent to ${cleanPhone}`,
+      message: `Tasdiqlash kodi ${cleanPhone} raqamiga yuborildi`,
       phoneNumber: cleanPhone,
+      provider: smsResult.provider,
       devCode: code,
     });
   } catch (error) {
@@ -448,6 +450,28 @@ router.post('/google', async (req, res) => {
 // ==========================================
 // 3. OPTION B: TELEGRAM LOGIN & SIGN-UP
 // ==========================================
+
+// GET /api/auth/telegram/check-session - Poll active Telegram authentication session
+router.get('/telegram/check-session', (req, res) => {
+  const { sessionId } = req.query;
+  if (!sessionId) {
+    return res.status(400).json({ error: 'Session ID is required' });
+  }
+
+  const session = getTelegramSession(String(sessionId));
+  if (!session) {
+    return res.json({ authenticated: false });
+  }
+
+  res.json({
+    authenticated: true,
+    user: session.user,
+    token: session.token,
+    refreshToken: session.refreshToken,
+    isNewUser: session.isNewUser,
+    phoneNumber: session.phoneNumber,
+  });
+});
 
 // POST /api/auth/telegram
 router.post('/telegram', async (req, res) => {

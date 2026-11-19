@@ -15,6 +15,7 @@ import paymentsRouter from './routes/payments';
 import uploadRouter from './routes/upload';
 import { setupSocketHandlers } from './socket';
 import { startEscrowCronJobs } from './cron/escrowJob';
+import { startTelegramBotPolling } from './services/telegramBotService';
 
 dotenv.config();
 
@@ -50,9 +51,10 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', service: 'SafeTrade Marketplace Server', market: 'Uzbekistan (UZS)' });
 });
 
-// Setup WebSockets & Background Cron
+// Setup WebSockets & Background Cron & Telegram Bot Polling
 setupSocketHandlers(io);
 startEscrowCronJobs();
+startTelegramBotPolling(io);
 
 const PORT = process.env.PORT || 4000;
 server.listen(PORT, () => {
