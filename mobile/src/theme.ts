@@ -6,6 +6,12 @@ export const THEME = {
     primaryLight: '#3B82F6',     // Sky Accent Blue
     primaryTint: '#EFF6FF',      // Gentle, soothing ice-blue tint for chips & badges
 
+    // TrustTag Official Brand Colors (from official Logo)
+    brandNavy: '#073B63',        // TrustTag Official Deep Navy ("Trust" & Shield Left)
+    brandNavyDark: '#042C4C',
+    brandGreen: '#19AB60',       // TrustTag Official Tag Green ("tag" & Tag Right)
+    brandGreenLight: '#E8FBF1',
+
     // Supporting Dark Blue & Slate Framing
     darkBlue: '#0F172A',         // Midnight Slate Blue (Clean, high-end)
     darkBlueLight: '#1E293B',

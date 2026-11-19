@@ -103,9 +103,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           </View>
 
           <View style={styles.trustBadge}>
-            <Ionicons name="shield-checkmark" size={12} color={THEME.colors.success} style={{ marginRight: 3 }} />
+            <Image
+              source={require('../../assets/logo-mark.png')}
+              style={{ width: 12, height: 15, marginRight: 4 }}
+              resizeMode="contain"
+            />
             <Text style={styles.trustText}>
-              {product.seller?.successfulSalesCount || 21} SafeTrade
+              {product.seller?.successfulSalesCount || 21} Trusttag
             </Text>
           </View>
         </View>

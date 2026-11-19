@@ -873,12 +873,17 @@ function MainApp() {
         <View style={styles.tabViewContainer}>
           {!currentUser ? (
             <View style={styles.guestProfileCard}>
-              <View style={styles.guestIconCircle}>
-                <Ionicons name="person-circle-outline" size={68} color={THEME.colors.primary} />
+              <Image
+                source={require('./assets/logo-mark.png')}
+                style={{ width: 68, height: 82, marginBottom: 16 }}
+                resizeMode="contain"
+              />
+              <View style={{ flexDirection: 'row', alignItems: 'baseline', marginBottom: 6 }}>
+                <Text style={{ fontSize: 24, fontWeight: '800', color: '#073B63' }}>Trust</Text>
+                <Text style={{ fontSize: 24, fontWeight: '800', color: '#19AB60' }}>tag</Text>
               </View>
-              <Text style={styles.guestTitle}>Xush kelibsiz!</Text>
               <Text style={styles.guestSubtitle}>
-                E'lon berish, xavfsiz savdo qilish va hamyondan foydalanish uchun tizimga kiring.
+                Online xavfsiz va hamyonbop savdo maydoni. E'lon berish, xarid qilish va xavfsiz hamyondan foydalanish uchun kiring.
               </Text>
               <TouchableOpacity
                 style={styles.guestLoginBtn}
@@ -1100,8 +1105,24 @@ function MainApp() {
             <Ionicons name="trash-outline" size={20} color={THEME.colors.alertRed} />
             <Text style={[styles.profileActionText, { color: THEME.colors.alertRed }]}>{t.deleteAccount}</Text>
           </TouchableOpacity>
-              <View style={{ height: 90 }} />
-            </ScrollView>
+
+          {/* Trusttag Brand Footer */}
+          <View style={styles.brandFooter}>
+            <Image
+              source={require('./assets/logo-mark.png')}
+              style={{ width: 28, height: 34, opacity: 0.85, marginBottom: 4 }}
+              resizeMode="contain"
+            />
+            <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+              <Text style={{ fontSize: 15, fontWeight: '800', color: '#073B63' }}>Trust</Text>
+              <Text style={{ fontSize: 15, fontWeight: '800', color: '#19AB60' }}>tag</Text>
+            </View>
+            <Text style={styles.brandFooterSlogan}>ONLINE XAVFSIZ VA HAMYONBOP SAVDO</Text>
+            <Text style={styles.brandFooterVersion}>Versiya 1.0.0 • Central Safe-Hold</Text>
+          </View>
+
+          <View style={{ height: 90 }} />
+        </ScrollView>
           )}
         </View>
       )}
@@ -2152,6 +2173,25 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: THEME.colors.textMuted,
     marginTop: 4,
+  },
+  brandFooter: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 28,
+    marginBottom: 8,
+    paddingVertical: 14,
+  },
+  brandFooterSlogan: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: THEME.colors.textSecondary,
+    letterSpacing: 0.6,
+    marginTop: 3,
+  },
+  brandFooterVersion: {
+    fontSize: 10,
+    color: THEME.colors.textMuted,
+    marginTop: 2,
   },
   bottomTabBar: {
     flexDirection: 'row',

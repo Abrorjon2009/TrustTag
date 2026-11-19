@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Modal, TouchableOpacity, ScrollView, StyleSheet, TextInput, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, ScrollView, StyleSheet, TextInput, ActivityIndicator, Alert, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { THEME } from '../theme';
 import { useAuth } from '../context/AuthContext';
@@ -96,12 +96,16 @@ export const WalletModal: React.FC<WalletModalProps> = ({ visible, onClose }) =>
                   </Text>
                 </View>
                 <View style={styles.vaultShield}>
-                  <Ionicons name="shield-checkmark" size={28} color="#FFFFFF" />
+                  <Image
+                    source={require('../../assets/logo-mark.png')}
+                    style={{ width: 28, height: 34 }}
+                    resizeMode="contain"
+                  />
                 </View>
               </View>
 
               <Text style={styles.balanceSubtitle}>
-                Protected by Central Bank Safe-Hold System
+                TrustTag Central Bank Safe-Hold kafolatlangan tizimi
               </Text>
 
               {/* Action Buttons */}

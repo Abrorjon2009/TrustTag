@@ -120,7 +120,7 @@ export const TRANSLATIONS = {
     stage3BMsg: 'Покупатель забрал деньги обратно. Не передавайте товар!',
     stage4Title: 'На Рассмотрении Модератора',
     stage4Msg: 'По сделке открыт спор. Средства заморожены до решения администратора.',
-    loginTitle: 'Вход в SafeTrade',
+    loginTitle: 'Вход в TrustTag',
     loginSubtitle: 'На ваш номер будет отправлен код подтверждения по SMS',
     phoneLabel: 'Номер телефона (+998)',
     sendCode: 'Получить код по SMS',

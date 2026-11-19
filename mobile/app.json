@@ -1,13 +1,13 @@
 {
   "expo": {
-    "name": "TrustTag SafeTrade",
+    "name": "TrustTag",
     "slug": "trusttag",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "backgroundColor": "#FF5000",
+      "backgroundColor": "#FFFFFF",
       "resizeMode": "contain"
     },
     "ios": {
@@ -18,8 +18,8 @@
       "package": "com.trusttag.market",
       "versionCode": 1,
       "adaptiveIcon": {
-        "backgroundColor": "#FF5000",
-        "foregroundImage": "./assets/icon.png"
+        "backgroundColor": "#FFFFFF",
+        "foregroundImage": "./assets/android-icon-foreground.png"
       },
       "permissions": [
         "android.permission.INTERNET",

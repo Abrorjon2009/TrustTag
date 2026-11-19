@@ -186,13 +186,17 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   <Text style={styles.sellerName}>{product.seller.fullName}</Text>
                   {product.seller.isPhoneVerified && (
                     <View style={styles.verifiedBadge}>
-                      <Ionicons name="shield-checkmark" size={12} color={THEME.colors.safeGreen} />
-                      <Text style={styles.verifiedText}>Verified</Text>
+                      <Image
+                        source={require('../../assets/logo-mark.png')}
+                        style={{ width: 12, height: 15, marginRight: 4 }}
+                        resizeMode="contain"
+                      />
+                      <Text style={styles.verifiedText}>Trusttag Verified</Text>
                     </View>
                   )}
                 </View>
                 <Text style={styles.sellerStats}>
-                  🛡️ {product.seller.successfulSalesCount} Successful Safe Trades
+                  🛡️ {product.seller.successfulSalesCount} Muvaffaqiyatli Trusttag Savdolar
                 </Text>
               </View>
             </View>

@@ -45,12 +45,17 @@ export const Header: React.FC<HeaderProps> = ({
       {/* Top Row: Brand & Action Controls */}
       <View style={styles.topRow}>
         <View style={styles.brandContainer}>
-          <View style={styles.logoBadge}>
-            <Ionicons name="shield-checkmark" size={18} color="#FFFFFF" />
-          </View>
+          <Image
+            source={require('../../assets/logo-mark.png')}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
           <View>
-            <Text style={styles.brandTitle}>SafeTrade</Text>
-            <Text style={styles.brandSubtitle}>Central Asia's Marketplace</Text>
+            <View style={styles.brandTitleRow}>
+              <Text style={styles.brandTitleTrust}>Trust</Text>
+              <Text style={styles.brandTitleTag}>tag</Text>
+            </View>
+            <Text style={styles.brandSubtitle}>Online xavfsiz savdo</Text>
           </View>
         </View>
 
@@ -243,30 +248,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  logoBadge: {
-    width: 38,
+  logoImage: {
+    width: 32,
     height: 38,
-    borderRadius: 12,
-    backgroundColor: THEME.colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
     marginRight: 8,
-    shadowColor: THEME.colors.primary,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 2,
   },
-  brandTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: THEME.colors.textDark,
-    letterSpacing: -0.3,
+  brandTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  brandTitleTrust: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#073B63',
+    letterSpacing: -0.4,
+  },
+  brandTitleTag: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#19AB60',
+    letterSpacing: -0.4,
   },
   brandSubtitle: {
-    fontSize: 11,
-    fontWeight: '500',
+    fontSize: 10,
+    fontWeight: '600',
     color: THEME.colors.textSecondary,
+    marginTop: -1,
   },
   locationPill: {
     flexDirection: 'row',

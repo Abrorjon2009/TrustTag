@@ -11,6 +11,7 @@ import {
   Platform,
   Alert,
   ScrollView,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { THEME } from '../theme';
@@ -224,14 +225,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({ visible, onClose }) => {
         style={styles.overlay}
       >
         <View style={styles.container}>
-          {/* Header */}
+          {/* Header with Official Trusttag Logo */}
           <View style={styles.header}>
             <View style={styles.titleRow}>
-              <View style={styles.iconCircle}>
-                <Ionicons name="shield-checkmark" size={24} color={THEME.colors.primary} />
-              </View>
-              <View style={{ marginLeft: 12, flex: 1 }}>
-                <Text style={styles.title}>{t.loginTitle}</Text>
+              <Image
+                source={require('../../assets/logo-mark.png')}
+                style={{ width: 36, height: 44, marginRight: 10 }}
+                resizeMode="contain"
+              />
+              <View style={{ flex: 1 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+                  <Text style={{ fontSize: 18, fontWeight: '800', color: '#073B63' }}>Trust</Text>
+                  <Text style={{ fontSize: 18, fontWeight: '800', color: '#19AB60' }}>tag</Text>
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: THEME.colors.textSecondary, marginLeft: 6 }}>
+                    • {t.loginTitle}
+                  </Text>
+                </View>
                 <Text style={styles.subtitle}>
                   {method === 'PHONE'
                     ? t.loginSubtitle
