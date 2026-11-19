@@ -73,11 +73,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const data = await api.getUsers();
       setUsers(data);
-      if (!currentUser && data.length > 0) {
-        // Default to Alex for immediate exploration if not logged in
-        const defaultUser = data.find((u: User) => u.fullName.includes('Alex')) || data[0];
-        setCurrentUser(defaultUser);
-      }
     } catch (err) {
       console.error('Failed to load users:', err);
     } finally {

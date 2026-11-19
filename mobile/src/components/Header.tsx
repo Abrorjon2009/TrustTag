@@ -8,7 +8,7 @@ import { api } from '../api/client';
 
 interface HeaderProps {
   onOpenLocationPicker: () => void;
-  onOpenWallet: () => void;
+  onOpenWallet?: () => void;
   onOpenAdmin: () => void;
   onOpenNotifications: () => void;
   onOpenChats?: () => void;
@@ -23,7 +23,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenChats,
   onOpenAuth,
 }) => {
-  const { currentUser, users, switchUser } = useAuth();
+  const { currentUser, users, switchUser, logout } = useAuth();
   const { displayLocationName } = useLocation();
   const [userDropdownVisible, setUserDropdownVisible] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -52,21 +52,15 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Location Selector Pill */}
         <TouchableOpacity style={styles.locationPill} onPress={onOpenLocationPicker}>
-          <Ionicons name="location" size={14} color={THEME.colors.primary} />
+          <Ionicons name="location" size={13} color={THEME.colors.primary} />
           <Text style={styles.locationText} numberOfLines={1}>
             {displayLocationName}
           </Text>
-          <Ionicons name="chevron-down" size={12} color={THEME.colors.textSecondary} />
+          <Ionicons name="chevron-down" size={11} color={THEME.colors.textSecondary} />
         </TouchableOpacity>
 
-        {/* Right Action Icons: Chats, Notifications, Wallet & User Switcher */}
+        {/* Right Action Icons: Notification Bell & User Account / Login */}
         <View style={styles.actionsRight}>
-          {onOpenChats && (
-            <TouchableOpacity style={styles.iconButton} onPress={onOpenChats} accessibilityLabel="Open Chats">
-              <Ionicons name="chatbubbles-outline" size={20} color={THEME.colors.textPrimary} />
-            </TouchableOpacity>
-          )}
-
           <TouchableOpacity style={styles.iconButton} onPress={onOpenNotifications}>
             <Ionicons name="notifications-outline" size={20} color={THEME.colors.textPrimary} />
             {unreadCount > 0 && (
@@ -76,38 +70,44 @@ export const Header: React.FC<HeaderProps> = ({
             )}
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.iconButton} onPress={onOpenWallet}>
-            <Ionicons name="wallet-outline" size={20} color={THEME.colors.textPrimary} />
-          </TouchableOpacity>
-
           {currentUser?.isAdmin && (
             <TouchableOpacity style={styles.adminBadge} onPress={onOpenAdmin}>
-              <Ionicons name="shield-outline" size={14} color="#FFF" />
+              <Ionicons name="shield-outline" size={13} color="#FFF" />
               <Text style={styles.adminBadgeText}>Admin</Text>
             </TouchableOpacity>
           )}
 
-          {/* User Switcher Pill */}
-          <TouchableOpacity
-            style={styles.userSwitcherPill}
-            onPress={() => setUserDropdownVisible(true)}
-          >
-            {currentUser?.avatarUrl ? (
-              <Image source={{ uri: currentUser.avatarUrl }} style={styles.avatar} />
-            ) : (
-              <View style={[styles.avatar, styles.avatarPlaceholder]}>
-                <Text style={styles.avatarInitial}>{currentUser?.fullName?.charAt(0) || 'U'}</Text>
-              </View>
-            )}
-            <Text style={styles.userName} numberOfLines={1}>
-              {currentUser?.fullName?.split(' ')[0] || 'User'}
-            </Text>
-            <Ionicons name="swap-vertical" size={12} color={THEME.colors.textSecondary} />
-          </TouchableOpacity>
+          {/* User Account Pill OR Login Button */}
+          {currentUser ? (
+            <TouchableOpacity
+              style={styles.userSwitcherPill}
+              onPress={() => setUserDropdownVisible(true)}
+            >
+              {currentUser.avatarUrl ? (
+                <Image source={{ uri: currentUser.avatarUrl }} style={styles.avatar} />
+              ) : (
+                <View style={[styles.avatar, styles.avatarPlaceholder]}>
+                  <Text style={styles.avatarInitial}>{currentUser.fullName?.charAt(0) || 'U'}</Text>
+                </View>
+              )}
+              <Text style={styles.userName} numberOfLines={1}>
+                {currentUser.fullName?.split(' ')[0] || 'User'}
+              </Text>
+              <Ionicons name="chevron-down" size={12} color={THEME.colors.textSecondary} />
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={styles.loginPill}
+              onPress={onOpenAuth}
+            >
+              <Ionicons name="sparkles" size={14} color="#FFFFFF" />
+              <Text style={styles.loginPillText}>Kirish</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
-      {/* User Switcher Modal */}
+      {/* User Switcher / Auth Modal Drawer */}
       <Modal
         visible={userDropdownVisible}
         transparent
@@ -120,24 +120,68 @@ export const Header: React.FC<HeaderProps> = ({
           onPress={() => setUserDropdownVisible(false)}
         >
           <View style={styles.dropdownContainer}>
-            <Text style={styles.dropdownTitle}>Switch Active Role / User</Text>
+            <View style={styles.dropdownHeaderRow}>
+              <Text style={styles.dropdownTitle}>Profil & Akkauntlar</Text>
+              <TouchableOpacity onPress={() => setUserDropdownVisible(false)} style={{ padding: 4 }}>
+                <Ionicons name="close" size={22} color={THEME.colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Current Active Account Preview */}
+            {currentUser && (
+              <View style={styles.currentUserPreview}>
+                <Image
+                  source={{
+                    uri: currentUser.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100',
+                  }}
+                  style={styles.previewAvatar}
+                />
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={styles.previewName}>{currentUser.fullName}</Text>
+                  <Text style={styles.previewProvider}>
+                    {currentUser.authProvider
+                      ? `Kirilgan: ${currentUser.authProvider}`
+                      : currentUser.phoneNumber || 'Faol akkaunt'}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.logoutMiniBtn}
+                  onPress={() => {
+                    logout();
+                    setUserDropdownVisible(false);
+                  }}
+                >
+                  <Ionicons name="log-out-outline" size={15} color={THEME.colors.alertRed} />
+                  <Text style={styles.logoutMiniText}>Chiqish</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Big Action: Open Auth Modal (Google, Telegram, Email, Phone) */}
             <TouchableOpacity
-              style={styles.smsAuthBtn}
+              style={styles.newAccountBtn}
               onPress={() => {
                 setUserDropdownVisible(false);
                 onOpenAuth?.();
               }}
             >
-              <Ionicons name="phone-portrait" size={18} color="#FFFFFF" />
-              <Text style={styles.smsAuthBtnText}>Telefon Raqam orqali Kirish (SMS OTP)</Text>
+              <View style={styles.newAccountIconCircle}>
+                <Ionicons name="sparkles" size={18} color="#FFFFFF" />
+              </View>
+              <View style={{ flex: 1, marginLeft: 10 }}>
+                <Text style={styles.newAccountBtnText}>Yangi Akkaunt / Kirish</Text>
+                <Text style={styles.newAccountBtnSub}>Google, Telegram, Email yoki SMS</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
             </TouchableOpacity>
 
             <Text style={styles.dropdownSubtitle}>
-              Yoki sinov rollari orasida almashing:
+              Yoki mavjud sinov rollariga o'ting:
             </Text>
             <FlatList
               data={users}
               keyExtractor={(item) => item.id}
+              style={{ maxHeight: 220 }}
               renderItem={({ item }) => {
                 const isSelected = item.id === currentUser?.id;
                 return (
@@ -162,8 +206,8 @@ export const Header: React.FC<HeaderProps> = ({
                         {item.isAdmin
                           ? '🛡️ Platform Admin'
                           : item.successfulSalesCount > 5
-                          ? `⭐ Verified Seller (${item.successfulSalesCount} Sales)`
-                          : `🛒 Customer (${item.successfulBuysCount} Buys)`}
+                          ? `⭐ Sotuvchi (${item.successfulSalesCount} savdo)`
+                          : `🛒 Xaridor (${item.successfulBuysCount} xarid)`}
                       </Text>
                     </View>
                     {isSelected && (
@@ -222,10 +266,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: THEME.colors.primaryTint,
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     paddingVertical: 5,
     borderRadius: THEME.borderRadius.pill,
-    maxWidth: 150,
+    maxWidth: 130,
   },
   locationText: {
     fontSize: 11,
@@ -265,24 +309,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: THEME.colors.alertRed,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
     borderRadius: THEME.borderRadius.pill,
     gap: 3,
   },
   adminBadgeText: {
     color: '#FFF',
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '700',
   },
   userSwitcherPill: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: THEME.colors.canvasBg,
-    paddingHorizontal: 7,
+    paddingHorizontal: 6,
     paddingVertical: 4,
     borderRadius: THEME.borderRadius.pill,
     gap: 5,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
   avatar: {
     width: 24,
@@ -296,63 +342,145 @@ const styles = StyleSheet.create({
   },
   avatarInitial: {
     color: '#FFFFFF',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
   },
   userName: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
     color: THEME.colors.textPrimary,
     maxWidth: 55,
+  },
+  loginPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: THEME.colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: THEME.borderRadius.pill,
+    gap: 4,
+    shadowColor: THEME.colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  loginPillText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
   },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 16,
   },
   dropdownContainer: {
     width: '100%',
     maxWidth: 380,
     backgroundColor: '#FFFFFF',
-    borderRadius: THEME.borderRadius.lg,
+    borderRadius: 20,
     padding: 20,
     ...THEME.shadows.float,
   },
+  dropdownHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
   dropdownTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
     color: THEME.colors.textPrimary,
-    marginBottom: 4,
   },
-  smsAuthBtn: {
+  currentUserPreview: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: THEME.colors.primary,
-    paddingVertical: 10,
-    borderRadius: 12,
-    marginTop: 8,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 14,
+    padding: 12,
     marginBottom: 12,
-    gap: 8,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
   },
-  smsAuthBtnText: {
-    color: '#FFFFFF',
-    fontSize: 13,
+  previewAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+  },
+  previewName: {
+    fontSize: 14,
     fontWeight: '700',
+    color: THEME.colors.textPrimary,
+  },
+  previewProvider: {
+    fontSize: 11,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  logoutMiniBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    backgroundColor: '#FEE2E2',
+    borderRadius: 8,
+    gap: 4,
+  },
+  logoutMiniText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: THEME.colors.alertRed,
+  },
+  newAccountBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: THEME.colors.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    marginBottom: 16,
+    shadowColor: THEME.colors.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  newAccountIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  newAccountBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  newAccountBtnSub: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 11,
+    fontWeight: '500',
+    marginTop: 1,
   },
   dropdownSubtitle: {
     fontSize: 12,
+    fontWeight: '600',
     color: THEME.colors.textSecondary,
-    marginBottom: 16,
+    marginBottom: 10,
+    textTransform: 'uppercase',
   },
   userOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
+    padding: 10,
     borderRadius: THEME.borderRadius.md,
-    marginBottom: 8,
+    marginBottom: 6,
     backgroundColor: THEME.colors.canvasBg,
   },
   userOptionSelected: {
@@ -361,23 +489,22 @@ const styles = StyleSheet.create({
     borderColor: THEME.colors.primary,
   },
   optionAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    marginRight: 10,
   },
   optionInfo: {
     flex: 1,
   },
   optionName: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     color: THEME.colors.textPrimary,
   },
   optionRole: {
-    fontSize: 12,
+    fontSize: 11,
     color: THEME.colors.textSecondary,
-    marginTop: 2,
+    marginTop: 1,
   },
 });
-

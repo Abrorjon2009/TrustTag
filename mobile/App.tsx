@@ -363,16 +363,6 @@ function MainApp() {
 
             <View style={{ height: 90 }} />
           </ScrollView>
-
-          {/* Floating Action Button (FAB): "➕ Post Item" */}
-          <TouchableOpacity
-            style={styles.fab}
-            onPress={() => setAddProductModalVisible(true)}
-            activeOpacity={0.88}
-          >
-            <Ionicons name="add" size={24} color="#FFFFFF" />
-            <Text style={styles.fabText}>Sell Item</Text>
-          </TouchableOpacity>
         </View>
       )}
 
@@ -879,7 +869,26 @@ function MainApp() {
       {/* Tab 4: PROFILE */}
       {activeTab === 'PROFILE' && (
         <View style={styles.tabViewContainer}>
-          <View style={styles.profileCard}>
+          {!currentUser ? (
+            <View style={styles.guestProfileCard}>
+              <View style={styles.guestIconCircle}>
+                <Ionicons name="person-circle-outline" size={68} color={THEME.colors.primary} />
+              </View>
+              <Text style={styles.guestTitle}>Xush kelibsiz!</Text>
+              <Text style={styles.guestSubtitle}>
+                E'lon berish, xavfsiz savdo qilish va hamyondan foydalanish uchun tizimga kiring.
+              </Text>
+              <TouchableOpacity
+                style={styles.guestLoginBtn}
+                onPress={() => setAuthModalVisible(true)}
+              >
+                <Ionicons name="sparkles" size={18} color="#FFF" />
+                <Text style={styles.guestLoginBtnText}>Tizimga Kirish / Ro'yxatdan O'tish</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <View style={styles.profileCard}>
             <View style={styles.profileHeader}>
               <View style={styles.profileAvatarPlaceholder}>
                 <Text style={styles.profileAvatarText}>
@@ -1007,8 +1016,16 @@ function MainApp() {
             style={styles.profileActionBtn}
             onPress={() => setAuthModalVisible(true)}
           >
-            <Ionicons name="phone-portrait-outline" size={20} color={THEME.colors.primary} />
-            <Text style={styles.profileActionText}>Telefon Raqam orqali Kirish / Ro'yxatdan O'tish</Text>
+            <Ionicons name="sparkles-outline" size={20} color={THEME.colors.primary} />
+            <Text style={styles.profileActionText}>Yangi Akkaunt Ochish / Kirish (Google, TG, Email, Tel)</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.profileActionBtn}
+            onPress={logout}
+          >
+            <Ionicons name="log-out-outline" size={20} color={THEME.colors.alertRed} />
+            <Text style={[styles.profileActionText, { color: THEME.colors.alertRed }]}>{t.logout || 'Chiqish'}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -1081,6 +1098,9 @@ function MainApp() {
             <Ionicons name="trash-outline" size={20} color={THEME.colors.alertRed} />
             <Text style={[styles.profileActionText, { color: THEME.colors.alertRed }]}>{t.deleteAccount}</Text>
           </TouchableOpacity>
+              <View style={{ height: 90 }} />
+            </ScrollView>
+          )}
         </View>
       )}
 
@@ -1096,7 +1116,7 @@ function MainApp() {
             color={activeTab === 'MARKETPLACE' ? THEME.colors.primary : THEME.colors.textSecondary}
           />
           <Text style={[styles.tabLabel, activeTab === 'MARKETPLACE' && styles.tabLabelActive]}>
-            Market
+            {t.marketplace || 'Market'}
           </Text>
         </TouchableOpacity>
 
@@ -1121,7 +1141,9 @@ function MainApp() {
           <View style={styles.centerPostPill}>
             <Ionicons name="add" size={24} color="#FFF" />
           </View>
-          <Text style={[styles.tabLabel, { marginTop: 2 }]}>Sell</Text>
+          <Text style={[styles.tabLabel, { marginTop: 2 }]}>
+            {t.addProduct || 'Sell'}
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -1134,7 +1156,7 @@ function MainApp() {
             color={activeTab === 'WALLET' ? THEME.colors.primary : THEME.colors.textSecondary}
           />
           <Text style={[styles.tabLabel, activeTab === 'WALLET' && styles.tabLabelActive]}>
-            Wallet
+            {t.wallet || 'Wallet'}
           </Text>
         </TouchableOpacity>
 
@@ -1148,7 +1170,7 @@ function MainApp() {
             color={activeTab === 'PROFILE' ? THEME.colors.primary : THEME.colors.textSecondary}
           />
           <Text style={[styles.tabLabel, activeTab === 'PROFILE' && styles.tabLabelActive]}>
-            Profile
+            {t.profile || 'Profile'}
           </Text>
         </TouchableOpacity>
       </View>
@@ -1900,6 +1922,45 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.85)',
     fontSize: 12,
     marginTop: 4,
+  },
+  guestProfileCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: THEME.borderRadius.lg,
+    padding: 28,
+    alignItems: 'center',
+    margin: 16,
+    ...THEME.shadows.card,
+  },
+  guestIconCircle: {
+    marginBottom: 12,
+  },
+  guestTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: THEME.colors.textPrimary,
+    marginBottom: 8,
+  },
+  guestSubtitle: {
+    fontSize: 14,
+    color: THEME.colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  guestLoginBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: THEME.colors.primary,
+    paddingVertical: 14,
+    paddingHorizontal: 22,
+    borderRadius: 14,
+    gap: 8,
+    ...THEME.shadows.hover,
+  },
+  guestLoginBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '800',
   },
   profileCard: {
     backgroundColor: '#FFFFFF',
