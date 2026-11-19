@@ -113,17 +113,19 @@ export const AuthModal: React.FC<AuthModalProps> = ({ visible, onClose }) => {
           clearInterval(interval);
           setWaitingTelegramSession(null);
           await loginWithToken(res.user, res.token);
+          handleClose();
           const successTitle = type === 'PHONE' ? 'Telefon Tasdiqlandi' : 'Telegram Tasdiqlandi';
           const successMsg = res.isNewUser
             ? `Assalomu alaykum, ${res.user.fullName}! Sizga 1,200,000 UZS start balansi berildi.`
             : `Assalomu alaykum, ${res.user.fullName}! Tizimga xush kelibsiz.`;
-          Alert.alert(successTitle, successMsg);
-          handleClose();
+          setTimeout(() => {
+            Alert.alert(successTitle, successMsg);
+          }, 150);
         }
       } catch (err) {
         // Continue polling silently
       }
-    }, 1500);
+    }, 800);
 
     const timeout = setTimeout(() => {
       if (isMounted) {
