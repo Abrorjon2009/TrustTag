@@ -1,9 +1,11 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express from 'express';
 import http from 'http';
 import cors from 'cors';
 import path from 'path';
 import { Server } from 'socket.io';
-import dotenv from 'dotenv';
 import locationsRouter from './routes/locations';
 import productsRouter from './routes/products';
 import tradesRouter from './routes/trades';
@@ -16,8 +18,6 @@ import uploadRouter from './routes/upload';
 import { setupSocketHandlers } from './socket';
 import { startEscrowCronJobs } from './cron/escrowJob';
 import { startTelegramBotPolling } from './services/telegramBotService';
-
-dotenv.config();
 
 const app = express();
 const server = http.createServer(app);

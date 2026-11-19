@@ -84,23 +84,24 @@ export function startTelegramBotPolling(io?: any) {
   const poll = async () => {
     while (isPolling) {
       try {
-        const url = `https://api.telegram.org/bot${token}/getUpdates?offset=${updateOffset}&timeout=25`;
-        const resp = await fetch(url);
+        const url = `https://api.telegram.org/bot${token}/getUpdates?offset=${updateOffset}&timeout=2`;
+        const resp = await fetch(url, { signal: AbortSignal.timeout(10000) });
         if (!resp.ok) {
-          await new Promise((r) => setTimeout(r, 5000));
+          await new Promise((r) => setTimeout(r, 3000));
           continue;
         }
 
         const data: any = await resp.json();
-        if (data.ok && Array.isArray(data.result)) {
+        if (data.ok && Array.isArray(data.result) && data.result.length > 0) {
           for (const update of data.result) {
             updateOffset = update.update_id + 1;
             await handleTelegramUpdate(update, token, io);
           }
         }
+        await new Promise((r) => setTimeout(r, 500));
       } catch (err: any) {
         // Network timeout / connection error - wait and retry
-        await new Promise((r) => setTimeout(r, 4000));
+        await new Promise((r) => setTimeout(r, 2000));
       }
     }
   };
