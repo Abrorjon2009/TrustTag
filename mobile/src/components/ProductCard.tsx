@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 8,
     left: 8,
-    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+    backgroundColor: 'rgba(11, 25, 44, 0.88)',
     paddingHorizontal: 8,
     paddingVertical: 3.5,
     borderRadius: THEME.borderRadius.pill,

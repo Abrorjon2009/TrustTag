@@ -1275,7 +1275,7 @@ export default function App() {
 const styles = StyleSheet.create({
   webDesktopBackground: {
     flex: 1,
-    backgroundColor: Platform.OS === 'web' ? '#0F172A' : '#FFFFFF',
+    backgroundColor: Platform.OS === 'web' ? '#0B192C' : '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
     width: '100%',
@@ -1289,8 +1289,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: Platform.OS === 'web' ? 32 : 0,
     overflow: 'hidden',
-    borderWidth: Platform.OS === 'web' ? 8 : 0,
-    borderColor: '#1E293B',
+    borderWidth: Platform.OS === 'web' ? 6 : 0,
+    borderColor: '#000000',
     elevation: 10,
   },
   safeArea: {
@@ -2219,7 +2219,7 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
   },
   langChipActive: {
-    backgroundColor: '#FFF2EB',
+    backgroundColor: THEME.colors.primaryTint,
     borderColor: THEME.colors.primary,
   },
   langChipText: {

@@ -1,52 +1,59 @@
 export const THEME = {
   colors: {
-    // Official Design Palette
-    primary: '#FF6B00',          // Primary Orange
-    primaryDark: '#E05E00',
-    primaryLight: '#FF8533',
-    primaryTint: '#FFF7ED',      // Soft peach background for chips & badges
+    // 4 Primary Colors: White, Bright Green, Dark Blue, Black
+    primary: '#05C168',          // Bright Green (Action, Buttons, Active Highlights, Prices)
+    primaryDark: '#049F56',
+    primaryLight: '#34D399',
+    primaryTint: '#E8FBF1',      // Soft pastel Bright Green tint for chips & badges
+
+    darkBlue: '#0B192C',         // Deep Midnight Dark Blue
+    darkBlueLight: '#1E293B',
+    darkBlueTint: '#F0F4F8',
+
+    black: '#000000',            // Pure Black (#000000)
+    white: '#FFFFFF',            // Pure White (#FFFFFF)
 
     // Status Colors
-    success: '#16A34A',          // Success Green (Verified safe-trade, positive)
-    safeGreen: '#16A34A',
-    safeGreenLight: '#DCFCE7',
-    safeGreenDark: '#15803D',
-    info: '#3B82F6',             // Info Blue
-    infoLight: '#EFF6FF',
+    success: '#05C168',          // Bright Green
+    safeGreen: '#05C168',
+    safeGreenLight: '#E8FBF1',
+    safeGreenDark: '#047857',
+    info: '#0284C7',             // Dark Sky Blue
+    infoLight: '#E0F2FE',
     alertRed: '#EF4444',         // Alert Red
     alertRedLight: '#FEE2E2',
     vipGold: '#F59E0B',          // VIP Gold
     vipGoldLight: '#FEF3C7',
 
     // Surfaces & Backgrounds
-    background: '#F8FAFC',       // Clean slate light background
+    background: '#F8FAFC',       // Clean Slate White Background
     canvasBg: '#F8FAFC',
-    card: '#FFFFFF',             // Pure white card background
+    card: '#FFFFFF',             // Pure White Card
     surface: '#FFFFFF',
     surfaceElevated: '#FFFFFF',
 
-    // Typography
-    textPrimary: '#0F172A',      // Text Dark (#0F172A)
-    textDark: '#0F172A',
-    textSecondary: '#64748B',    // Text Secondary (#64748B)
-    textMuted: '#94A3B8',        // Slate 400
-    borderSubtle: '#E2E8F0',     // Slate 200
+    // Typography (Black & Dark Blue)
+    textPrimary: '#000000',      // Solid Black
+    textDark: '#0B192C',         // Midnight Dark Blue
+    textSecondary: '#475569',    // Slate Dark Muted
+    textMuted: '#94A3B8',
+    borderSubtle: '#E2E8F0',     // Subtle White/Slate border
     borderMedium: '#CBD5E1',
 
     // Trade Stage Banners
-    stage1Gray: '#64748B',
+    stage1Gray: '#475569',
     stage1GrayBg: '#F1F5F9',
-    stage2Green: '#16A34A',
-    stage2GreenBg: '#DCFCE7',
-    stage3Blue: '#3B82F6',
-    stage3BlueBg: '#EFF6FF',
+    stage2Green: '#05C168',
+    stage2GreenBg: '#E8FBF1',
+    stage3Blue: '#0B192C',
+    stage3BlueBg: '#F0F4F8',
     stage3Yellow: '#D97706',
     stage3YellowBg: '#FEF3C7',
     stage4Red: '#DC2626',
     stage4RedBg: '#FEE2E2',
   },
   typography: {
-    heading1: { fontSize: 22, fontWeight: '600' as const },
+    heading1: { fontSize: 22, fontWeight: '700' as const },
     heading2: { fontSize: 16, fontWeight: '600' as const },
     body: { fontSize: 14, fontWeight: '400' as const },
     caption: { fontSize: 12, fontWeight: '400' as const },
@@ -62,23 +69,23 @@ export const THEME = {
   },
   shadows: {
     card: {
-      shadowColor: '#0F172A',
+      shadowColor: '#0B192C',
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.04,
       shadowRadius: 6,
       elevation: 2,
     },
     hover: {
-      shadowColor: '#FF6B00',
+      shadowColor: '#05C168',
       shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.15,
+      shadowOpacity: 0.25,
       shadowRadius: 10,
       elevation: 4,
     },
     float: {
-      shadowColor: '#0F172A',
+      shadowColor: '#0B192C',
       shadowOffset: { width: 0, height: 6 },
-      shadowOpacity: 0.08,
+      shadowOpacity: 0.1,
       shadowRadius: 14,
       elevation: 6,
     },

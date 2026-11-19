@@ -742,7 +742,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#FFF2EB',
+    backgroundColor: THEME.colors.primaryTint,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1081,7 +1081,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     textAlign: 'center',
     letterSpacing: 8,
-    backgroundColor: '#FFF9F5',
+    backgroundColor: THEME.colors.primaryTint,
     color: '#111827',
   },
   resendRow: {
