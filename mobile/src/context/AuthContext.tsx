@@ -132,12 +132,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       try {
         // Automatically obtain matching session token for seamless role switching
-        const authRes = await api.verifyOtp(found.phoneNumber, '123456');
-        if (authRes?.token) {
-          setAuthToken(authRes.token);
-          setTokenState(authRes.token);
-          if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
-            localStorage.setItem(STORAGE_KEY_TOKEN, authRes.token);
+        if (found.phoneNumber) {
+          const authRes = await api.verifyOtp(found.phoneNumber, '123456');
+          if (authRes?.token) {
+            setAuthToken(authRes.token);
+            setTokenState(authRes.token);
+            if (Platform.OS === 'web' && typeof localStorage !== 'undefined') {
+              localStorage.setItem(STORAGE_KEY_TOKEN, authRes.token);
+            }
           }
         }
       } catch (e) {

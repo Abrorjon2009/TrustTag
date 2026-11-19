@@ -10,11 +10,17 @@ generator client {
 
 model User {
   id                     String         @id @default(uuid())
-  phoneNumber            String         @unique
+  phoneNumber            String?        @unique
   email                  String?        @unique
+  passwordHash           String?
+  googleId               String?        @unique
+  telegramId             String?        @unique
+  telegramUsername       String?
+  authProvider           String         @default("PHONE")
   fullName               String
   avatarUrl              String?
   isPhoneVerified        Boolean        @default(false)
+  isEmailVerified        Boolean        @default(false)
   successfulSalesCount   Int            @default(0)
   successfulBuysCount    Int            @default(0)
   unresolvedReportsCount Int            @default(0)

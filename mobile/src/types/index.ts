@@ -19,16 +19,20 @@ export interface GeoRegion {
 
 export interface User {
   id: string;
-  phoneNumber: string;
+  phoneNumber?: string | null;
   email?: string | null;
   fullName: string;
   avatarUrl?: string | null;
-  isPhoneVerified: boolean;
+  isPhoneVerified?: boolean;
+  isEmailVerified?: boolean;
+  authProvider?: string;
+  telegramUsername?: string | null;
   successfulSalesCount: number;
   successfulBuysCount: number;
   unresolvedReportsCount: number;
   isBanned: boolean;
   isAdmin: boolean;
+  preferredLang?: string;
   wallet?: Wallet | null;
 }
 

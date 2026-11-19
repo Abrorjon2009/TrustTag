@@ -63,6 +63,33 @@ export const api = {
       body: JSON.stringify({ phoneNumber, code, fullName }),
     }),
 
+  // Option A: Google Sign-In
+  loginWithGoogle: (data: { googleId?: string; email: string; fullName?: string; avatarUrl?: string }) =>
+    request<{ success: boolean; isNewUser: boolean; user: any; token: string; refreshToken: string }>('/auth/google', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // Option B: Telegram Login
+  loginWithTelegram: (data: { telegramId?: string; username?: string; fullName?: string; avatarUrl?: string }) =>
+    request<{ success: boolean; isNewUser: boolean; user: any; token: string; refreshToken: string }>('/auth/telegram', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // Option C: Email & Password
+  registerWithEmail: (data: { email: string; password: string; fullName: string }) =>
+    request<{ success: boolean; isNewUser: boolean; user: any; token: string; refreshToken: string }>('/auth/register-email', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  loginWithEmail: (data: { email: string; password: string }) =>
+    request<{ success: boolean; isNewUser: boolean; user: any; token: string; refreshToken: string }>('/auth/login-email', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
   getMe: () => request<any>('/auth/me'),
 
   updateProfile: (data: { fullName?: string; email?: string; avatarUrl?: string; preferredLang?: string }) =>
