@@ -1,10 +1,114 @@
 import { Router } from 'express';
 import jwt from 'jsonwebtoken';
+import { OAuth2Client } from 'google-auth-library';
 import { prisma } from '../db';
 import { JWT_SECRET, requireAuth, AuthRequest } from '../middleware/auth';
 import { hashPassword, verifyPassword } from '../utils/security';
 
 const router = Router();
+const googleOAuthClient = new OAuth2Client();
+
+// Helper to verify Google ID Token
+async function verifyGoogleIdToken(idToken: string) {
+  // 1. Try google-auth-library
+  try {
+    const ticket = await googleOAuthClient.verifyIdToken({
+      idToken,
+      audience: process.env.GOOGLE_CLIENT_ID || process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID || undefined,
+    });
+    const payload = ticket.getPayload();
+    if (payload && payload.sub && payload.email) {
+      return {
+        googleId: payload.sub,
+        email: payload.email.trim().toLowerCase(),
+        fullName: payload.name || payload.given_name || payload.email.split('@')[0],
+        avatarUrl: payload.picture || null,
+        isEmailVerified: Boolean(payload.email_verified),
+      };
+    }
+  } catch (err: any) {
+    // Fallback to tokeninfo endpoint
+  }
+
+  // 2. Fallback to Google's official tokeninfo endpoint
+  try {
+    const res = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`);
+    if (res.ok) {
+      const data: any = await res.json();
+      if (data.sub && data.email) {
+        return {
+          googleId: data.sub,
+          email: data.email.trim().toLowerCase(),
+          fullName: data.name || data.given_name || data.email.split('@')[0],
+          avatarUrl: data.picture || null,
+          isEmailVerified: data.email_verified === 'true' || data.email_verified === true,
+        };
+      }
+    }
+  } catch (e: any) {
+    console.error('Google tokeninfo verification error:', e.message);
+  }
+
+  return null;
+}
+
+// Helper to verify Google Access Token
+async function verifyGoogleAccessToken(accessToken: string) {
+  try {
+    const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (res.ok) {
+      const data: any = await res.json();
+      if (data.sub && data.email) {
+        return {
+          googleId: data.sub,
+          email: data.email.trim().toLowerCase(),
+          fullName: data.name || data.given_name || data.email.split('@')[0],
+          avatarUrl: data.picture || null,
+          isEmailVerified: Boolean(data.email_verified),
+        };
+      }
+    }
+  } catch (err: any) {
+    console.error('Google userinfo verification error:', err.message);
+  }
+  return null;
+}
+
+// Helper to exchange Google Authorization Code
+async function exchangeGoogleAuthCode(code: string, redirectUri?: string) {
+  try {
+    const clientId = process.env.GOOGLE_CLIENT_ID || process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID;
+    const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+    if (!clientId) return null;
+
+    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code,
+        client_id: clientId,
+        ...(clientSecret ? { client_secret: clientSecret } : {}),
+        redirect_uri: redirectUri || 'postmessage',
+        grant_type: 'authorization_code',
+      }).toString(),
+    });
+
+    if (tokenRes.ok) {
+      const tokenData: any = await tokenRes.json();
+      if (tokenData.id_token) {
+        return verifyGoogleIdToken(tokenData.id_token);
+      }
+      if (tokenData.access_token) {
+        return verifyGoogleAccessToken(tokenData.access_token);
+      }
+    }
+  } catch (err: any) {
+    console.error('Google code exchange error:', err.message);
+  }
+  return null;
+}
 
 // Helper to normalize Uzbekistan phone number
 function normalizeUzPhone(phone: string): string {
@@ -196,19 +300,46 @@ router.post('/verify-otp', async (req, res) => {
 // POST /api/auth/google
 router.post('/google', async (req, res) => {
   try {
-    const { googleId, email, fullName, avatarUrl } = req.body;
-    if (!email && !googleId) {
-      return res.status(400).json({ error: 'Google account details (email or googleId) are required' });
+    const { idToken, accessToken, code, redirectUri, mode = 'LOGIN', googleId, email, fullName, avatarUrl } = req.body;
+
+    let verifiedUser: {
+      googleId: string;
+      email: string;
+      fullName: string;
+      avatarUrl?: string | null;
+      isEmailVerified: boolean;
+    } | null = null;
+
+    // 1. Verify Real Google Token
+    if (idToken) {
+      verifiedUser = await verifyGoogleIdToken(idToken);
+    } else if (accessToken) {
+      verifiedUser = await verifyGoogleAccessToken(accessToken);
+    } else if (code) {
+      verifiedUser = await exchangeGoogleAuthCode(code, redirectUri);
     }
 
-    const cleanEmail = email ? email.trim().toLowerCase() : null;
+    // If token was provided but failed verification
+    if ((idToken || accessToken || code) && !verifiedUser) {
+      return res.status(401).json({ error: 'Google hisobini tasdiqlash muvaffaqiyatsiz bo\'ldi (yaroqsiz yoki eskirgan token)' });
+    }
 
-    // Search user by googleId or by email
+    // Determine user profile (real verified Google data takes absolute precedence)
+    const targetGoogleId = verifiedUser?.googleId || googleId || null;
+    const targetEmail = verifiedUser?.email || (email ? email.trim().toLowerCase() : null);
+    const targetFullName = verifiedUser?.fullName || (fullName?.trim() || (targetEmail ? targetEmail.split('@')[0] : 'Google User'));
+    const targetAvatar = verifiedUser?.avatarUrl || avatarUrl || null;
+
+    if (!targetGoogleId && !targetEmail) {
+      return res.status(400).json({ error: 'Google hisob ma\'lumotlari (token yoki email) kiritilmadi' });
+    }
+
+    // Search user by googleId or email
     let user = await prisma.user.findFirst({
       where: {
         OR: [
-          ...(googleId ? [{ googleId }] : []),
-          ...(cleanEmail ? [{ email: cleanEmail }] : []),
+          ...(targetGoogleId ? [{ googleId: targetGoogleId }] : []),
+          ...(targetEmail ? [{ email: targetEmail }] : []),
         ],
       },
       include: { wallet: true },
@@ -216,20 +347,32 @@ router.post('/google', async (req, res) => {
 
     const isNewUser = !user;
 
-    if (!user) {
-      const generatedGoogleId = googleId || `google_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+    if (mode === 'SIGNUP' && user) {
+      // User pressed SIGN UP with Google, but account already exists -> smooth login & Google sync
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          googleId: user.googleId || targetGoogleId,
+          avatarUrl: user.avatarUrl || targetAvatar,
+          isEmailVerified: true,
+        },
+        include: { wallet: true },
+      });
+    } else if (!user) {
+      // Create new user (Sign Up or first-time Log In)
+      const generatedGoogleId = targetGoogleId || `google_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
       user = await prisma.user.create({
         data: {
           googleId: generatedGoogleId,
-          email: cleanEmail,
-          fullName: fullName?.trim() || (cleanEmail ? cleanEmail.split('@')[0] : 'Google User'),
-          avatarUrl: avatarUrl || (cleanEmail ? `https://api.dicebear.com/7.x/bottts/png?seed=${encodeURIComponent(cleanEmail)}` : null),
+          email: targetEmail,
+          fullName: targetFullName,
+          avatarUrl: targetAvatar || (targetEmail ? `https://api.dicebear.com/7.x/bottts/png?seed=${encodeURIComponent(targetEmail)}` : null),
           authProvider: 'GOOGLE',
           isEmailVerified: true,
           wallet: {
             create: {
               currency: 'UZS',
-              availableBalance: 1200000.0,
+              availableBalance: 1200000.0, // 1,200,000 UZS starting balance
               safeHoldBalance: 0.0,
               frozenBalance: 0.0,
             },
@@ -238,12 +381,12 @@ router.post('/google', async (req, res) => {
         include: { wallet: true },
       });
     } else {
-      // Connect Google account if user signed up previously
+      // Normal Login for existing user
       user = await prisma.user.update({
         where: { id: user.id },
         data: {
-          googleId: user.googleId || googleId,
-          avatarUrl: user.avatarUrl || avatarUrl,
+          googleId: user.googleId || targetGoogleId,
+          avatarUrl: targetAvatar || user.avatarUrl,
           isEmailVerified: true,
         },
         include: { wallet: true },
@@ -263,6 +406,9 @@ router.post('/google', async (req, res) => {
       user: formatUserResponse(user),
       token,
       refreshToken,
+      message: isNewUser
+        ? `Google orqali yangi hisob yaratildi: ${user.fullName}`
+        : `Google orqali kirdingiz: ${user.fullName}`,
     });
   } catch (error) {
     console.error('Google auth error:', error);

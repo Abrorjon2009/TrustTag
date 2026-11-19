@@ -18,6 +18,12 @@ import { THEME } from '../theme';
 import { api } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from '../locales/i18n';
+import {
+  promptGoogleAuth,
+  getSavedGoogleClientId,
+  saveGoogleClientId,
+  loadGoogleGsiScript,
+} from '../services/googleAuth';
 
 interface AuthModalProps {
   visible: boolean;
@@ -48,8 +54,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ visible, onClose }) => {
   const [showPassword, setShowPassword] = useState(false);
 
   // Google state
-  const [googleEmail, setGoogleEmail] = useState('');
-  const [googleName, setGoogleName] = useState('');
+  const [googleMode, setGoogleMode] = useState<'LOGIN' | 'SIGNUP'>('LOGIN');
+  const [googleClientId, setGoogleClientId] = useState('');
+  const [showClientIdConfig, setShowClientIdConfig] = useState(false);
+  const [tempClientId, setTempClientId] = useState('');
 
   // Telegram state
   const [telegramUsername, setTelegramUsername] = useState('');
@@ -65,6 +73,16 @@ export const AuthModal: React.FC<AuthModalProps> = ({ visible, onClose }) => {
     }
     return () => clearInterval(timer);
   }, [step, countdown]);
+
+  // Google initialization & Client ID sync
+  useEffect(() => {
+    if (visible && method === 'GOOGLE') {
+      const savedId = getSavedGoogleClientId();
+      setGoogleClientId(savedId);
+      setTempClientId(savedId);
+      loadGoogleGsiScript().catch(() => {});
+    }
+  }, [visible, method]);
 
   // ==========================================
   // HANDLERS
@@ -114,31 +132,57 @@ export const AuthModal: React.FC<AuthModalProps> = ({ visible, onClose }) => {
     }
   };
 
-  // 2. Google Handler
-  const handleGoogleLogin = async (presetEmail?: string, presetName?: string) => {
-    const targetEmail = (presetEmail || googleEmail).trim().toLowerCase();
-    const targetName = (presetName || googleName || targetEmail.split('@')[0] || 'Google User').trim();
+  // 2. Real Google Auth Handlers (Log In & Sign Up)
+  const handleGoogleAuth = async (modeOverride?: 'LOGIN' | 'SIGNUP') => {
+    const targetMode = modeOverride || googleMode;
+    const effectiveClientId = googleClientId.trim() || getSavedGoogleClientId();
 
-    if (!targetEmail || !targetEmail.includes('@')) {
-      Alert.alert('Xatolik', 'Iltimos, Google elektron pochta manzilingizni kiriting');
+    if (!effectiveClientId) {
+      setShowClientIdConfig(true);
+      Alert.alert(
+        'Google Client ID Kerak',
+        'Google orqali kirish / ro\'yxatdan o\'tish uchun Google Cloud Web Client ID kerak. Quyidagi sozlama maydoniga Client ID ni kiriting yoki mobile/.env fayliga EXPO_PUBLIC_GOOGLE_CLIENT_ID sifatida yozing.'
+      );
       return;
     }
 
     setIsLoading(true);
     try {
-      const res = await api.loginWithGoogle({
-        email: targetEmail,
-        fullName: targetName,
-        googleId: `google_${targetEmail.replace(/[^a-zA-Z0-9]/g, '_')}`,
+      const authResult = await promptGoogleAuth({
+        clientId: effectiveClientId,
+        mode: targetMode,
       });
+
+      const res = await api.loginWithGoogle({
+        accessToken: authResult.accessToken,
+        idToken: authResult.idToken,
+        code: authResult.code,
+        mode: targetMode,
+      });
+
       await loginWithToken(res.user, res.token);
-      Alert.alert('Muvaffaqiyatli', `Google orqali kirdingiz: ${res.user.fullName}`);
+
+      const title = res.isNewUser || targetMode === 'SIGNUP' ? 'Xush kelibsiz!' : 'Muvaffaqiyatli';
+      const msg = res.message || (res.isNewUser
+        ? `Google orqali yangi hisobingiz ochildi: ${res.user.fullName}`
+        : `Google orqali kirdingiz: ${res.user.fullName}`);
+
+      Alert.alert(title, msg);
       handleClose();
     } catch (err: any) {
-      Alert.alert('Xatolik', err.message || 'Google orqali kirishda xatolik yuz berdi');
+      console.error('Google Auth Error:', err);
+      Alert.alert('Google Xatolik', err.message || 'Google orqali autentifikatsiyada xatolik yuz berdi');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleSaveClientId = () => {
+    const clean = tempClientId.trim();
+    saveGoogleClientId(clean);
+    setGoogleClientId(clean);
+    setShowClientIdConfig(false);
+    Alert.alert('Saqlandi', clean ? 'Google Client ID muvaffaqiyatli saqlandi!' : 'Google Client ID tozalandi.');
   };
 
   // 3. Telegram Handler
@@ -453,80 +497,144 @@ export const AuthModal: React.FC<AuthModalProps> = ({ visible, onClose }) => {
             )}
 
             {/* ==================================================== */}
-            {/* METHOD 2: GOOGLE SIGN-IN (FREE & 1-TAP)              */}
+            {/* METHOD 2: REAL GOOGLE SIGN-IN & SIGN-UP (OAUTH 2.0)  */}
             {/* ==================================================== */}
             {method === 'GOOGLE' && (
               <View style={styles.form}>
+                {/* 1. Mode Switch: LOG IN vs SIGN UP */}
+                <View style={styles.googleModeSwitch}>
+                  <TouchableOpacity
+                    style={[styles.modeBtn, googleMode === 'LOGIN' && styles.modeBtnActive]}
+                    onPress={() => setGoogleMode('LOGIN')}
+                  >
+                    <Text style={[styles.modeBtnText, googleMode === 'LOGIN' && styles.modeBtnTextActive]}>
+                      {t.loginTab} (Log In)
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.modeBtn, googleMode === 'SIGNUP' && styles.modeBtnActive]}
+                    onPress={() => setGoogleMode('SIGNUP')}
+                  >
+                    <Text style={[styles.modeBtnText, googleMode === 'SIGNUP' && styles.modeBtnTextActive]}>
+                      {t.registerTab} (Sign Up)
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* 2. Descriptive Info Banner */}
                 <View style={styles.infoBannerGoogle}>
-                  <Ionicons name="sparkles" size={20} color="#EA4335" />
+                  <Ionicons name="sparkles" size={18} color="#EA4335" />
                   <Text style={styles.infoBannerTextGoogle}>
-                    Google bilan 100% tekin, SMS kutmasdan va 1 bosishda hisob oching!
+                    {googleMode === 'LOGIN'
+                      ? t.googleLoginSubtitle
+                      : t.googleSignupSubtitle}
                   </Text>
                 </View>
 
-                <Text style={styles.inputLabel}>Google Pochta Manzili</Text>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="masalan: alisher.q@gmail.com"
-                  placeholderTextColor="#9CA3AF"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  value={googleEmail}
-                  onChangeText={setGoogleEmail}
-                />
-
-                <Text style={[styles.inputLabel, { marginTop: 14 }]}>Ismingiz</Text>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="Alisher Qodirov"
-                  placeholderTextColor="#9CA3AF"
-                  value={googleName}
-                  onChangeText={setGoogleName}
-                />
-
+                {/* 3. Primary Real Google Action Button */}
                 <TouchableOpacity
-                  style={[styles.googleBtn, isLoading && { opacity: 0.7 }]}
-                  onPress={() => handleGoogleLogin()}
+                  style={[
+                    styles.realGoogleBtn,
+                    googleMode === 'SIGNUP' && styles.realGoogleBtnSignup,
+                    isLoading && { opacity: 0.7 },
+                  ]}
+                  onPress={() => handleGoogleAuth(googleMode)}
                   disabled={isLoading}
                 >
                   {isLoading ? (
-                    <ActivityIndicator color="#374151" />
+                    <ActivityIndicator color="#1F2937" size="small" />
                   ) : (
-                    <>
-                      <Ionicons name="logo-google" size={20} color="#EA4335" />
-                      <Text style={styles.googleBtnText}>Google orqali Kirish</Text>
-                    </>
+                    <View style={styles.googleBtnRow}>
+                      <View style={[styles.googleIconCircle, googleMode === 'SIGNUP' && { backgroundColor: '#EEF2FF' }]}>
+                        <Ionicons
+                          name="logo-google"
+                          size={22}
+                          color={googleMode === 'SIGNUP' ? '#4285F4' : '#EA4335'}
+                        />
+                      </View>
+                      <View style={styles.googleBtnTextContainer}>
+                        <Text style={styles.realGoogleBtnText}>
+                          {googleMode === 'LOGIN' ? t.loginWithGoogle : t.signupWithGoogle}
+                        </Text>
+                        <Text style={styles.realGoogleBtnSubText}>
+                          {googleMode === 'LOGIN' ? 'Rasmiy Google OAuth 2.0 bilan' : '1,200,000 UZS start balansi bilan'}
+                        </Text>
+                      </View>
+                      <Ionicons name="arrow-forward" size={18} color="#9CA3AF" />
+                    </View>
                   )}
                 </TouchableOpacity>
 
-                {/* 1-Tap Quick Accounts */}
-                <View style={styles.demoSection}>
-                  <Text style={styles.demoSectionTitle}>Tezkor Sinov Google Akkauntlari:</Text>
-                  <View style={styles.demoButtons}>
-                    <TouchableOpacity
-                      style={styles.demoBtn}
-                      onPress={() => handleGoogleLogin('alex.buyer@gmail.com', 'Alex (Google Xaridor)')}
-                    >
-                      <Ionicons name="logo-google" size={14} color="#EA4335" />
-                      <Text style={styles.demoBtnText}>Alex Google</Text>
-                    </TouchableOpacity>
+                {/* 4. Alternate Quick Action Button (Direct 1-Tap Access to the Other Flow) */}
+                <TouchableOpacity
+                  style={[styles.secondaryGoogleBtn, isLoading && { opacity: 0.7 }]}
+                  onPress={() => {
+                    const otherMode = googleMode === 'LOGIN' ? 'SIGNUP' : 'LOGIN';
+                    setGoogleMode(otherMode);
+                    handleGoogleAuth(otherMode);
+                  }}
+                  disabled={isLoading}
+                >
+                  <Ionicons
+                    name={googleMode === 'LOGIN' ? 'person-add-outline' : 'log-in-outline'}
+                    size={18}
+                    color="#4B5563"
+                  />
+                  <Text style={styles.secondaryGoogleBtnText}>
+                    {googleMode === 'LOGIN'
+                      ? 'Yangi hisob ochish (Sign Up with Google)'
+                      : 'Mavjud hisobga kirish (Log In with Google)'}
+                  </Text>
+                </TouchableOpacity>
 
-                    <TouchableOpacity
-                      style={styles.demoBtn}
-                      onPress={() => handleGoogleLogin('sarah.seller@gmail.com', 'Sarah (Google Sotuvchi)')}
-                    >
-                      <Ionicons name="logo-google" size={14} color="#EA4335" />
-                      <Text style={styles.demoBtnText}>Sarah Google</Text>
-                    </TouchableOpacity>
+                {/* 5. Security Guarantee Badge */}
+                <View style={styles.googleSecurityBadge}>
+                  <Ionicons name="shield-checkmark" size={16} color="#059669" />
+                  <Text style={styles.googleSecurityText}>
+                    Google hisobingiz xavfsiz va shifrlangan protokol orqali ulanadi. Parolingiz hech qachon saqlanmaydi.
+                  </Text>
+                </View>
 
-                    <TouchableOpacity
-                      style={styles.demoBtn}
-                      onPress={() => handleGoogleLogin('developer.uz@gmail.com', 'Sardor Qodirov')}
-                    >
-                      <Ionicons name="logo-google" size={14} color="#EA4335" />
-                      <Text style={styles.demoBtnText}>Yangi Profil</Text>
-                    </TouchableOpacity>
-                  </View>
+                {/* 6. Google Client ID Settings Drawer (For Easy Configuration) */}
+                <View style={styles.clientIdConfigSection}>
+                  <TouchableOpacity
+                    style={styles.clientIdToggleBtn}
+                    onPress={() => setShowClientIdConfig(!showClientIdConfig)}
+                  >
+                    <Ionicons name="settings-outline" size={14} color="#6B7280" />
+                    <Text style={styles.clientIdToggleText}>
+                      {googleClientId
+                        ? `Google OAuth: ulangan (${googleClientId.slice(0, 14)}...)`
+                        : 'Google OAuth Client ID sozlamasi'}
+                    </Text>
+                    <Ionicons
+                      name={showClientIdConfig ? 'chevron-up' : 'chevron-down'}
+                      size={14}
+                      color="#6B7280"
+                    />
+                  </TouchableOpacity>
+
+                  {showClientIdConfig && (
+                    <View style={styles.clientIdConfigBox}>
+                      <Text style={styles.clientIdConfigTitle}>Google Cloud OAuth 2.0 Web Client ID:</Text>
+                      <TextInput
+                        style={styles.clientIdInput}
+                        placeholder="masalan: 123456789-abc.apps.googleusercontent.com"
+                        placeholderTextColor="#9CA3AF"
+                        autoCapitalize="none"
+                        value={tempClientId}
+                        onChangeText={setTempClientId}
+                      />
+                      <View style={styles.clientIdConfigActions}>
+                        <TouchableOpacity style={styles.clientIdSaveBtn} onPress={handleSaveClientId}>
+                          <Text style={styles.clientIdSaveBtnText}>Saqlash</Text>
+                        </TouchableOpacity>
+                      </View>
+                      <Text style={styles.clientIdHelpText}>
+                        * Google Cloud Console {'>'} APIs & Services {'>'} Credentials {'>'} OAuth 2.0 Client IDs bo'limidan Web Client ID oling.
+                      </Text>
+                    </View>
+                  )}
                 </View>
               </View>
             )}
@@ -942,6 +1050,155 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '700',
+  },
+  googleModeSwitch: {
+    flexDirection: 'row',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 16,
+  },
+  realGoogleBtn: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginTop: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  realGoogleBtnSignup: {
+    borderColor: '#C7D2FE',
+    backgroundColor: '#F8FAFC',
+  },
+  googleBtnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  googleIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FEF2F2',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  googleBtnTextContainer: {
+    flex: 1,
+  },
+  realGoogleBtnText: {
+    color: '#111827',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  realGoogleBtnSubText: {
+    color: '#6B7280',
+    fontSize: 12,
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  secondaryGoogleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    marginTop: 12,
+  },
+  secondaryGoogleBtnText: {
+    color: '#374151',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  googleSecurityBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#ECFDF5',
+    padding: 10,
+    borderRadius: 10,
+    marginTop: 16,
+  },
+  googleSecurityText: {
+    flex: 1,
+    fontSize: 11,
+    color: '#065F46',
+    lineHeight: 15,
+  },
+  clientIdConfigSection: {
+    marginTop: 20,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+  clientIdToggleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 6,
+  },
+  clientIdToggleText: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  clientIdConfigBox: {
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 10,
+  },
+  clientIdConfigTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 6,
+  },
+  clientIdInput: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 12,
+    color: '#111827',
+  },
+  clientIdConfigActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 8,
+  },
+  clientIdSaveBtn: {
+    backgroundColor: THEME.colors.primary,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+  },
+  clientIdSaveBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  clientIdHelpText: {
+    fontSize: 10,
+    color: '#9CA3AF',
+    marginTop: 8,
+    lineHeight: 14,
   },
   googleBtn: {
     flexDirection: 'row',

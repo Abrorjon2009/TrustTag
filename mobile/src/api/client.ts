@@ -63,9 +63,19 @@ export const api = {
       body: JSON.stringify({ phoneNumber, code, fullName }),
     }),
 
-  // Option A: Google Sign-In
-  loginWithGoogle: (data: { googleId?: string; email: string; fullName?: string; avatarUrl?: string }) =>
-    request<{ success: boolean; isNewUser: boolean; user: any; token: string; refreshToken: string }>('/auth/google', {
+  // Option A: Google Sign-In & Sign-Up
+  loginWithGoogle: (data: {
+    idToken?: string;
+    accessToken?: string;
+    code?: string;
+    redirectUri?: string;
+    mode?: 'LOGIN' | 'SIGNUP';
+    googleId?: string;
+    email?: string;
+    fullName?: string;
+    avatarUrl?: string;
+  }) =>
+    request<{ success: boolean; isNewUser: boolean; user: any; token: string; refreshToken: string; message?: string }>('/auth/google', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
