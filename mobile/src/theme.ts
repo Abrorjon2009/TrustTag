@@ -1,52 +1,53 @@
 export const THEME = {
   colors: {
-    // 4 Primary Colors: White, Bright Green, Dark Blue, Black
-    primary: '#05C168',          // Bright Green (Action, Buttons, Active Highlights, Prices)
-    primaryDark: '#049F56',
-    primaryLight: '#34D399',
-    primaryTint: '#E8FBF1',      // Soft pastel Bright Green tint for chips & badges
+    // Primary Modern Sapphire Blue (Calm, trustworthy, gentle on the eye)
+    primary: '#2563EB',          // Modern Royal Sapphire Blue
+    primaryDark: '#1D4ED8',      // Deeper Royal Blue
+    primaryLight: '#3B82F6',     // Sky Accent Blue
+    primaryTint: '#EFF6FF',      // Gentle, soothing ice-blue tint for chips & badges
 
-    darkBlue: '#0B192C',         // Deep Midnight Dark Blue
+    // Supporting Dark Blue & Slate Framing
+    darkBlue: '#0F172A',         // Midnight Slate Blue (Clean, high-end)
     darkBlueLight: '#1E293B',
-    darkBlueTint: '#F0F4F8',
+    darkBlueTint: '#F1F5F9',
 
-    black: '#000000',            // Pure Black (#000000)
+    black: '#0F172A',            // Deep Dark Slate (replaces harsh stark black for softer readability)
     white: '#FFFFFF',            // Pure White (#FFFFFF)
 
     // Status Colors
-    success: '#05C168',          // Bright Green
-    safeGreen: '#05C168',
-    safeGreenLight: '#E8FBF1',
+    success: '#16A34A',          // Success Emerald Green (for verified SafeTrade checkmarks as shown in Figma spec)
+    safeGreen: '#16A34A',        // Muted Emerald (escrow security indicators)
+    safeGreenLight: '#ECFDF5',
     safeGreenDark: '#047857',
-    info: '#0284C7',             // Dark Sky Blue
-    infoLight: '#E0F2FE',
+    info: '#3B82F6',             // Info Blue
+    infoLight: '#EFF6FF',
     alertRed: '#EF4444',         // Alert Red
     alertRedLight: '#FEE2E2',
     vipGold: '#F59E0B',          // VIP Gold
     vipGoldLight: '#FEF3C7',
 
     // Surfaces & Backgrounds
-    background: '#F8FAFC',       // Clean Slate White Background
+    background: '#F8FAFC',       // Soothing Slate White Canvas
     canvasBg: '#F8FAFC',
-    card: '#FFFFFF',             // Pure White Card
+    card: '#FFFFFF',             // Pure White Card Surface
     surface: '#FFFFFF',
     surfaceElevated: '#FFFFFF',
 
-    // Typography (Black & Dark Blue)
-    textPrimary: '#000000',      // Solid Black
-    textDark: '#0B192C',         // Midnight Dark Blue
-    textSecondary: '#475569',    // Slate Dark Muted
-    textMuted: '#94A3B8',
-    borderSubtle: '#E2E8F0',     // Subtle White/Slate border
+    // Typography
+    textPrimary: '#0F172A',      // Midnight Dark Slate (soft on eyes, high contrast)
+    textDark: '#0F172A',
+    textSecondary: '#64748B',    // Slate 500 (balanced secondary)
+    textMuted: '#94A3B8',        // Slate 400
+    borderSubtle: '#E2E8F0',     // Hairline soft border
     borderMedium: '#CBD5E1',
 
     // Trade Stage Banners
-    stage1Gray: '#475569',
+    stage1Gray: '#64748B',
     stage1GrayBg: '#F1F5F9',
-    stage2Green: '#05C168',
-    stage2GreenBg: '#E8FBF1',
-    stage3Blue: '#0B192C',
-    stage3BlueBg: '#F0F4F8',
+    stage2Green: '#2563EB',
+    stage2GreenBg: '#EFF6FF',
+    stage3Blue: '#1D4ED8',
+    stage3BlueBg: '#EFF6FF',
     stage3Yellow: '#D97706',
     stage3YellowBg: '#FEF3C7',
     stage4Red: '#DC2626',
@@ -69,23 +70,23 @@ export const THEME = {
   },
   shadows: {
     card: {
-      shadowColor: '#0B192C',
+      shadowColor: '#0F172A',
       shadowOffset: { width: 0, height: 2 },
       shadowOpacity: 0.04,
       shadowRadius: 6,
       elevation: 2,
     },
     hover: {
-      shadowColor: '#05C168',
+      shadowColor: '#2563EB',
       shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.25,
+      shadowOpacity: 0.2,
       shadowRadius: 10,
       elevation: 4,
     },
     float: {
-      shadowColor: '#0B192C',
+      shadowColor: '#0F172A',
       shadowOffset: { width: 0, height: 6 },
-      shadowOpacity: 0.1,
+      shadowOpacity: 0.08,
       shadowRadius: 14,
       elevation: 6,
     },

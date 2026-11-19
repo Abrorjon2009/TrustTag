@@ -36,9 +36,13 @@ export const Header: React.FC<HeaderProps> = ({
     }
   }, [currentUser]);
 
+  const shortLocation = displayLocationName
+    ? displayLocationName.split('•')[0].trim().replace(/ City| Viloyati| Viloyat/g, '')
+    : 'Tashkent';
+
   return (
     <View style={styles.container}>
-      {/* Top Row: Brand & User Switcher & Location */}
+      {/* Top Row: Brand & Action Controls */}
       <View style={styles.topRow}>
         <View style={styles.brandContainer}>
           <View style={styles.logoBadge}>
@@ -50,17 +54,17 @@ export const Header: React.FC<HeaderProps> = ({
           </View>
         </View>
 
-        {/* Location Selector Pill */}
-        <TouchableOpacity style={styles.locationPill} onPress={onOpenLocationPicker}>
-          <Ionicons name="location" size={13} color={THEME.colors.primary} />
-          <Text style={styles.locationText} numberOfLines={1}>
-            {displayLocationName}
-          </Text>
-          <Ionicons name="chevron-down" size={11} color={THEME.colors.textSecondary} />
-        </TouchableOpacity>
-
-        {/* Right Action Icons: Notification Bell, Wallet & User Account / Login */}
+        {/* Right Action Icons: Location Pill, Notification Bell, Wallet, User Account */}
         <View style={styles.actionsRight}>
+          {/* Location Selector Pill */}
+          <TouchableOpacity style={styles.locationPill} onPress={onOpenLocationPicker}>
+            <Ionicons name="location" size={13} color={THEME.colors.primary} />
+            <Text style={styles.locationText} numberOfLines={1}>
+              {shortLocation}
+            </Text>
+            <Ionicons name="chevron-down" size={11} color={THEME.colors.textSecondary} />
+          </TouchableOpacity>
+
           <TouchableOpacity style={styles.iconButton} onPress={onOpenNotifications}>
             <Ionicons name="notifications-outline" size={20} color={THEME.colors.textDark} />
             {unreadCount > 0 && <View style={styles.bellBadge} />}
@@ -72,16 +76,17 @@ export const Header: React.FC<HeaderProps> = ({
 
           {currentUser?.isAdmin && (
             <TouchableOpacity style={styles.adminBadge} onPress={onOpenAdmin}>
-              <Ionicons name="shield-outline" size={13} color="#FFF" />
+              <Ionicons name="shield-outline" size={11} color="#FFF" />
               <Text style={styles.adminBadgeText}>Admin</Text>
             </TouchableOpacity>
           )}
 
-          {/* User Account Pill OR Login Button */}
+          {/* User Account / Login Button */}
           {currentUser ? (
             <TouchableOpacity
-              style={styles.userSwitcherPill}
+              style={styles.avatarButton}
               onPress={() => setUserDropdownVisible(true)}
+              activeOpacity={0.8}
             >
               {currentUser.avatarUrl ? (
                 <Image source={{ uri: currentUser.avatarUrl }} style={styles.avatar} />
@@ -90,17 +95,13 @@ export const Header: React.FC<HeaderProps> = ({
                   <Text style={styles.avatarInitial}>{currentUser.fullName?.charAt(0) || 'U'}</Text>
                 </View>
               )}
-              <Text style={styles.userName} numberOfLines={1}>
-                {currentUser.fullName?.split(' ')[0] || 'User'}
-              </Text>
-              <Ionicons name="chevron-down" size={12} color={THEME.colors.textSecondary} />
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
               style={styles.loginPill}
               onPress={onOpenAuth}
+              activeOpacity={0.8}
             >
-              <Ionicons name="sparkles" size={14} color="#FFFFFF" />
               <Text style={styles.loginPillText}>Kirish</Text>
             </TouchableOpacity>
           )}
@@ -273,21 +274,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     paddingVertical: 5,
     borderRadius: THEME.borderRadius.pill,
-    maxWidth: 130,
+    gap: 3,
   },
   locationText: {
     fontSize: 12,
     fontWeight: '600',
     color: THEME.colors.textDark,
-    marginHorizontal: 4,
+    maxWidth: 75,
   },
   actionsRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 7,
   },
   iconButton: {
     width: 36,
@@ -323,6 +324,27 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
   },
+  avatarButton: {
+    padding: 1,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: THEME.colors.borderSubtle,
+  },
+  avatar: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+  },
+  avatarPlaceholder: {
+    backgroundColor: THEME.colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarInitial: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
   userSwitcherPill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -334,21 +356,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
-  avatar: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-  },
-  avatarPlaceholder: {
-    backgroundColor: THEME.colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarInitial: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '700',
-  },
   userName: {
     fontSize: 12,
     fontWeight: '700',
@@ -359,10 +366,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: THEME.colors.primary,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: THEME.borderRadius.pill,
-    gap: 4,
     shadowColor: THEME.colors.primary,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
