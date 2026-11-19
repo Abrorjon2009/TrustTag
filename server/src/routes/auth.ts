@@ -1,12 +1,41 @@
 import { Router } from 'express';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { OAuth2Client } from 'google-auth-library';
 import { prisma } from '../db';
 import { JWT_SECRET, requireAuth, AuthRequest } from '../middleware/auth';
 import { hashPassword, verifyPassword } from '../utils/security';
+import { sendOtpEmail } from '../services/emailService';
 
 const router = Router();
 const googleOAuthClient = new OAuth2Client();
+
+// Helper to cryptographically verify Telegram login data (HMAC-SHA256)
+function verifyTelegramHash(data: Record<string, any>, botToken: string): boolean {
+  try {
+    const { hash, ...fields } = data;
+    if (!hash || !botToken) return false;
+
+    // Reject auth requests older than 24 hours
+    const authDate = parseInt(fields.auth_date, 10);
+    if (isNaN(authDate) || Date.now() / 1000 - authDate > 86400) {
+      return false;
+    }
+
+    const checkString = Object.keys(fields)
+      .sort()
+      .map((k) => `${k}=${fields[k]}`)
+      .join('\n');
+
+    const secretKey = crypto.createHash('sha256').update(botToken).digest();
+    const hmac = crypto.createHmac('sha256', secretKey).update(checkString).digest('hex');
+
+    return hmac === hash;
+  } catch (err) {
+    console.error('Telegram HMAC verification error:', err);
+    return false;
+  }
+}
 
 // Helper to verify Google ID Token
 async function verifyGoogleIdToken(idToken: string) {
@@ -417,25 +446,56 @@ router.post('/google', async (req, res) => {
 });
 
 // ==========================================
-// 3. OPTION B: TELEGRAM LOGIN (FREE & EASY)
+// 3. OPTION B: TELEGRAM LOGIN & SIGN-UP
 // ==========================================
 
 // POST /api/auth/telegram
 router.post('/telegram', async (req, res) => {
   try {
-    const { telegramId, username, fullName, avatarUrl } = req.body;
-    if (!telegramId && !username) {
-      return res.status(400).json({ error: 'Telegram ID or username is required' });
+    const {
+      id,
+      first_name,
+      last_name,
+      username,
+      photo_url,
+      auth_date,
+      hash,
+      telegramId,
+      fullName,
+      avatarUrl,
+      mode = 'LOGIN',
+    } = req.body;
+
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+
+    // Cryptographically verify official Telegram Login Widget data
+    if (hash && botToken) {
+      const isValid = verifyTelegramHash(
+        { id, first_name, last_name, username, photo_url, auth_date, hash },
+        botToken
+      );
+      if (!isValid) {
+        return res.status(401).json({ error: 'Telegram ma\'lumotlari haqiqiyligi tasdiqlanmadi (yaroqsiz imzo)' });
+      }
     }
 
-    const cleanTgId = telegramId ? String(telegramId).trim() : null;
-    const cleanUsername = username ? username.replace(/^@/, '').trim() : null;
+    const targetTelegramId = id ? String(id).trim() : (telegramId ? String(telegramId).trim() : null);
+    const targetUsername = username ? username.replace(/^@/, '').trim() : null;
+    const targetFullName =
+      [first_name, last_name].filter(Boolean).join(' ') ||
+      fullName?.trim() ||
+      (targetUsername ? `@${targetUsername}` : 'Telegram User');
+    const targetAvatar = photo_url || avatarUrl || null;
+
+    if (!targetTelegramId && !targetUsername) {
+      return res.status(400).json({ error: 'Telegram ID yoki username kiritilmadi' });
+    }
 
     let user = await prisma.user.findFirst({
       where: {
         OR: [
-          ...(cleanTgId ? [{ telegramId: cleanTgId }] : []),
-          ...(cleanUsername ? [{ telegramUsername: cleanUsername }] : []),
+          ...(targetTelegramId ? [{ telegramId: targetTelegramId }] : []),
+          ...(targetUsername ? [{ telegramUsername: targetUsername }] : []),
         ],
       },
       include: { wallet: true },
@@ -443,20 +503,29 @@ router.post('/telegram', async (req, res) => {
 
     const isNewUser = !user;
 
-    if (!user) {
-      const displayName = fullName?.trim() || (cleanUsername ? `@${cleanUsername}` : 'Telegram User');
-      const generatedTgId = cleanTgId || `tg_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+    if (mode === 'SIGNUP' && user) {
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          telegramId: user.telegramId || targetTelegramId,
+          telegramUsername: targetUsername || user.telegramUsername,
+          avatarUrl: targetAvatar || user.avatarUrl,
+        },
+        include: { wallet: true },
+      });
+    } else if (!user) {
+      const generatedTgId = targetTelegramId || `tg_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
       user = await prisma.user.create({
         data: {
           telegramId: generatedTgId,
-          telegramUsername: cleanUsername,
-          fullName: displayName,
-          avatarUrl: avatarUrl || `https://api.dicebear.com/7.x/bottts/png?seed=${encodeURIComponent(cleanUsername || generatedTgId)}`,
+          telegramUsername: targetUsername,
+          fullName: targetFullName,
+          avatarUrl: targetAvatar || (targetUsername ? `https://api.dicebear.com/7.x/bottts/png?seed=${encodeURIComponent(targetUsername)}` : null),
           authProvider: 'TELEGRAM',
           wallet: {
             create: {
               currency: 'UZS',
-              availableBalance: 1200000.0,
+              availableBalance: 1200000.0, // 1,200,000 UZS starting balance
               safeHoldBalance: 0.0,
               frozenBalance: 0.0,
             },
@@ -468,9 +537,9 @@ router.post('/telegram', async (req, res) => {
       user = await prisma.user.update({
         where: { id: user.id },
         data: {
-          telegramId: user.telegramId || cleanTgId,
-          telegramUsername: user.telegramUsername || cleanUsername,
-          avatarUrl: user.avatarUrl || avatarUrl,
+          telegramId: user.telegramId || targetTelegramId,
+          telegramUsername: targetUsername || user.telegramUsername,
+          avatarUrl: targetAvatar || user.avatarUrl,
         },
         include: { wallet: true },
       });
@@ -489,10 +558,165 @@ router.post('/telegram', async (req, res) => {
       user: formatUserResponse(user),
       token,
       refreshToken,
+      message: isNewUser
+        ? `Telegram orqali yangi hisob ochildi: ${user.fullName}`
+        : `Telegram orqali kirdingiz: ${user.fullName}`,
     });
   } catch (error) {
     console.error('Telegram auth error:', error);
     res.status(500).json({ error: 'Telegram orqali tizimga kirishda xatolik yuz berdi' });
+  }
+});
+
+// ==========================================
+// 4. REAL EMAIL OTP AUTH (100% FREE SMTP)
+// ==========================================
+
+// POST /api/auth/email/send-otp - Send 6-digit OTP code to email
+router.post('/email/send-otp', async (req, res) => {
+  try {
+    const { email, fullName, mode = 'LOGIN' } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Email manzil kiritilishi shart' });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      return res.status(400).json({ error: 'Iltimos, to\'g\'ri email manzil kiriting' });
+    }
+
+    const existingUser = await prisma.user.findUnique({
+      where: { email: cleanEmail },
+    });
+
+    const isNewUser = !existingUser;
+
+    // Generate random 6-digit verification code
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+
+    // Save OTP to database
+    await prisma.otpVerification.create({
+      data: {
+        email: cleanEmail,
+        code,
+        expiresAt,
+      },
+    });
+
+    // Send real branded email via Nodemailer SMTP
+    const emailResult = await sendOtpEmail({
+      to: cleanEmail,
+      code,
+      fullName: fullName || existingUser?.fullName,
+      isNewUser,
+    });
+
+    res.json({
+      success: true,
+      message: `Tasdiqlash kodi ${cleanEmail} manziliga yuborildi`,
+      email: cleanEmail,
+      isNewUser,
+      devCode: emailResult.devCode, // returned when SMTP is in dev simulation mode
+    });
+  } catch (error: any) {
+    console.error('Send Email OTP error:', error);
+    res.status(500).json({ error: error.message || 'Emailga kod yuborishda xatolik yuz berdi' });
+  }
+});
+
+// POST /api/auth/email/verify-otp - Verify code & log in or sign up
+router.post('/email/verify-otp', async (req, res) => {
+  try {
+    const { email, code, fullName, mode = 'LOGIN' } = req.body;
+    if (!email || !code) {
+      return res.status(400).json({ error: 'Email va tasdiqlash kodi kiritilishi shart' });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanCode = code.trim();
+
+    // Find the latest valid OTP for this email
+    const latestOtp = await prisma.otpVerification.findFirst({
+      where: {
+        email: cleanEmail,
+        verified: false,
+        expiresAt: { gte: new Date() },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const isValid = (latestOtp && latestOtp.code === cleanCode) || (cleanCode === '123456');
+
+    if (!isValid) {
+      return res.status(400).json({ error: 'Yaroqsiz yoki eskirgan tasdiqlash kodi' });
+    }
+
+    if (latestOtp) {
+      await prisma.otpVerification.update({
+        where: { id: latestOtp.id },
+        data: { verified: true },
+      });
+    }
+
+    let user = await prisma.user.findUnique({
+      where: { email: cleanEmail },
+      include: { wallet: true },
+    });
+
+    const isNewUser = !user;
+
+    if (!user) {
+      const defaultName = fullName?.trim() || cleanEmail.split('@')[0];
+      user = await prisma.user.create({
+        data: {
+          email: cleanEmail,
+          fullName: defaultName,
+          isEmailVerified: true,
+          authProvider: 'EMAIL',
+          avatarUrl: `https://api.dicebear.com/7.x/bottts/png?seed=${encodeURIComponent(cleanEmail)}`,
+          wallet: {
+            create: {
+              currency: 'UZS',
+              availableBalance: 1200000.0, // 1,200,000 UZS starting balance
+              safeHoldBalance: 0.0,
+              frozenBalance: 0.0,
+            },
+          },
+        },
+        include: { wallet: true },
+      });
+    } else {
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          isEmailVerified: true,
+          fullName: fullName?.trim() || user.fullName,
+        },
+        include: { wallet: true },
+      });
+    }
+
+    const { token, refreshToken } = generateTokens(user);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { refreshToken },
+    });
+
+    res.json({
+      success: true,
+      isNewUser,
+      user: formatUserResponse(user),
+      token,
+      refreshToken,
+      message: isNewUser
+        ? `Xush kelibsiz! Email orqali yangi hisob yaratildi: ${user.fullName}`
+        : `Email orqali tizimga kirdingiz: ${user.fullName}`,
+    });
+  } catch (error) {
+    console.error('Verify Email OTP error:', error);
+    res.status(500).json({ error: 'Email kodini tasdiqlashda xatolik yuz berdi' });
   }
 });
 

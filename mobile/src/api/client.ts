@@ -80,14 +80,39 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
-  // Option B: Telegram Login
-  loginWithTelegram: (data: { telegramId?: string; username?: string; fullName?: string; avatarUrl?: string }) =>
-    request<{ success: boolean; isNewUser: boolean; user: any; token: string; refreshToken: string }>('/auth/telegram', {
+  // Option B: Telegram Login & Registration
+  loginWithTelegram: (data: {
+    id?: number | string;
+    first_name?: string;
+    last_name?: string;
+    username?: string;
+    photo_url?: string;
+    auth_date?: number;
+    hash?: string;
+    telegramId?: string;
+    fullName?: string;
+    avatarUrl?: string;
+    mode?: 'LOGIN' | 'SIGNUP';
+  }) =>
+    request<{ success: boolean; isNewUser: boolean; user: any; token: string; refreshToken: string; message?: string }>('/auth/telegram', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
 
-  // Option C: Email & Password
+  // Option C: Real Email OTP (100% Free Verification Code)
+  sendEmailOtp: (data: { email: string; fullName?: string; mode?: 'LOGIN' | 'SIGNUP' }) =>
+    request<{ success: boolean; message: string; email: string; isNewUser: boolean; devCode?: string }>('/auth/email/send-otp', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  verifyEmailOtp: (data: { email: string; code: string; fullName?: string; mode?: 'LOGIN' | 'SIGNUP' }) =>
+    request<{ success: boolean; isNewUser: boolean; user: any; token: string; refreshToken: string; message?: string }>('/auth/email/verify-otp', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // Option D: Email & Password (Legacy fallback)
   registerWithEmail: (data: { email: string; password: string; fullName: string }) =>
     request<{ success: boolean; isNewUser: boolean; user: any; token: string; refreshToken: string }>('/auth/register-email', {
       method: 'POST',

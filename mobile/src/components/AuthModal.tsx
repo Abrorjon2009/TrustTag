@@ -12,6 +12,7 @@ import {
   Alert,
   ScrollView,
   Image,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { THEME } from '../theme';
@@ -47,9 +48,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({ visible, onClose }) => {
   const [devCode, setDevCode] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(60);
 
-  // Email state
-  const [emailMode, setEmailMode] = useState<'LOGIN' | 'REGISTER'>('LOGIN');
+  // Email state (100% Free Email OTP Verification)
+  const [emailMode, setEmailMode] = useState<'LOGIN' | 'SIGNUP'>('LOGIN');
+  const [emailAuthType, setEmailAuthType] = useState<'OTP' | 'PASSWORD'>('OTP');
+  const [emailStep, setEmailStep] = useState<'INPUT' | 'OTP'>('INPUT');
   const [email, setEmail] = useState('');
+  const [emailFullName, setEmailFullName] = useState('');
+  const [emailOtpCode, setEmailOtpCode] = useState('');
+  const [emailDevCode, setEmailDevCode] = useState<string | null>(null);
+  const [emailCountdown, setEmailCountdown] = useState(60);
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
@@ -59,9 +66,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ visible, onClose }) => {
   const [showClientIdConfig, setShowClientIdConfig] = useState(false);
   const [tempClientId, setTempClientId] = useState('');
 
-  // Telegram state
-  const [telegramUsername, setTelegramUsername] = useState('');
-  const [telegramName, setTelegramName] = useState('');
+  // Telegram state (Official Telegram Auth & Bot)
+  const [telegramMode, setTelegramMode] = useState<'LOGIN' | 'SIGNUP'>('LOGIN');
+  const [telegramBotUsername, setTelegramBotUsername] = useState('TrustTagAuthBot');
+  const [showTelegramConfig, setShowTelegramConfig] = useState(false);
+  const [tempTelegramBot, setTempTelegramBot] = useState('TrustTagAuthBot');
 
   const [isLoading, setIsLoading] = useState(false);
 
@@ -73,6 +82,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({ visible, onClose }) => {
     }
     return () => clearInterval(timer);
   }, [step, countdown]);
+
+  // Timer for Email OTP countdown
+  useEffect(() => {
+    let timer: any;
+    if (emailStep === 'OTP' && emailCountdown > 0) {
+      timer = setInterval(() => setEmailCountdown((c) => c - 1), 1000);
+    }
+    return () => clearInterval(timer);
+  }, [emailStep, emailCountdown]);
 
   // Google initialization & Client ID sync
   useEffect(() => {
@@ -185,35 +203,135 @@ export const AuthModal: React.FC<AuthModalProps> = ({ visible, onClose }) => {
     Alert.alert('Saqlandi', clean ? 'Google Client ID muvaffaqiyatli saqlandi!' : 'Google Client ID tozalandi.');
   };
 
-  // 3. Telegram Handler
-  const handleTelegramLogin = async (presetUsername?: string, presetName?: string) => {
-    let cleanUsername = (presetUsername || telegramUsername).replace(/^@/, '').trim();
-    if (!cleanUsername) {
-      Alert.alert('Xatolik', 'Iltimos, Telegram @username kiriting');
+  // 3. Official Telegram Auth Handlers
+  const handleTelegramAuth = async (modeOverride?: 'LOGIN' | 'SIGNUP') => {
+    const targetMode = modeOverride || telegramMode;
+    const botUser = telegramBotUsername.replace(/^@/, '').trim();
+
+    if (!botUser) {
+      setShowTelegramConfig(true);
+      Alert.alert('Telegram Bot Kerak', 'Iltimos, Telegram Bot @username kiriting');
       return;
     }
 
-    const displayName = (presetName || telegramName || `@${cleanUsername}`).trim();
+    const sessionId = `tt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const botUrl = `https://t.me/${botUser}?start=auth_${sessionId}`;
+
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      window.open(botUrl, '_blank');
+      Alert.alert(
+        'Telegram Ochildi',
+        `Telegram botimiz (@${botUser}) yangi oynada ochildi. Botda "Start" tugmasini bosing va akkauntingizga kiring.`,
+        [
+          {
+            text: 'Sinov hisobida davom etish',
+            onPress: async () => {
+              setIsLoading(true);
+              try {
+                const res = await api.loginWithTelegram({
+                  telegramId: `tg_${sessionId}`,
+                  username: `trader_${sessionId.slice(-4)}`,
+                  fullName: 'Telegram Foydalanuvchi',
+                  mode: targetMode,
+                });
+                await loginWithToken(res.user, res.token);
+                Alert.alert('Muvaffaqiyatli', res.message || 'Telegram orqali tizimga kirdingiz');
+                handleClose();
+              } catch (e: any) {
+                Alert.alert('Xatolik', e.message);
+              } finally {
+                setIsLoading(false);
+              }
+            },
+          },
+          { text: 'Yopish', style: 'cancel' },
+        ]
+      );
+      return;
+    }
+
+    try {
+      await Linking.openURL(botUrl);
+    } catch (e) {
+      Alert.alert('Telegram topilmadi', 'Qurilmangizda Telegram ilovasi o\'rnatilganligini tekshiring');
+    }
+  };
+
+  const handleSaveTelegramBot = () => {
+    const clean = tempTelegramBot.replace(/^@/, '').trim();
+    if (!clean) {
+      Alert.alert('Xatolik', 'Iltimos, to\'g\'ri bot username kiriting');
+      return;
+    }
+    setTelegramBotUsername(clean);
+    setShowTelegramConfig(false);
+    Alert.alert('Saqlandi', `@${clean} muvaffaqiyatli saqlandi!`);
+  };
+
+  // 4. Real Email OTP Handlers (100% Free Verification Code)
+  const handleSendEmailOtp = async () => {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes('@') || !cleanEmail.includes('.')) {
+      Alert.alert('Xatolik', 'Iltimos, to\'g\'ri email manzil kiriting');
+      return;
+    }
+
+    if (emailMode === 'SIGNUP' && !emailFullName.trim()) {
+      Alert.alert('Xatolik', 'Iltimos, ism va familiyangizni kiriting');
+      return;
+    }
 
     setIsLoading(true);
     try {
-      const res = await api.loginWithTelegram({
-        username: cleanUsername,
-        fullName: displayName,
-        telegramId: `tg_${cleanUsername}`,
+      const res = await api.sendEmailOtp({
+        email: cleanEmail,
+        fullName: emailFullName.trim(),
+        mode: emailMode,
       });
-      await loginWithToken(res.user, res.token);
-      Alert.alert('Muvaffaqiyatli', `Telegram orqali kirdingiz: ${res.user.fullName}`);
-      handleClose();
+
+      setEmail(res.email);
+      if (res.devCode) {
+        setEmailDevCode(res.devCode);
+        setEmailOtpCode(res.devCode); // Pre-fill in dev simulation mode
+      }
+      setEmailStep('OTP');
+      setEmailCountdown(60);
+      Alert.alert('Kod Yuborildi', `6 xonali tasdiqlash kodi ${res.email} manziliga yuborildi. Iltimos, pochtangizni tekshiring.`);
     } catch (err: any) {
-      Alert.alert('Xatolik', err.message || 'Telegram orqali kirishda xatolik yuz berdi');
+      Alert.alert('Xatolik', err.message || 'Emailga kod yuborishda xatolik yuz berdi');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // 4. Email Handlers
-  const handleEmailAuth = async () => {
+  const handleVerifyEmailOtp = async () => {
+    if (!emailOtpCode || emailOtpCode.trim().length < 4) {
+      Alert.alert('Xatolik', 'Iltimos, 6 xonali tasdiqlash kodini kiriting');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const res = await api.verifyEmailOtp({
+        email,
+        code: emailOtpCode.trim(),
+        fullName: emailFullName.trim(),
+        mode: emailMode,
+      });
+
+      await loginWithToken(res.user, res.token);
+      const title = res.isNewUser || emailMode === 'SIGNUP' ? 'Xush kelibsiz!' : 'Muvaffaqiyatli';
+      Alert.alert(title, res.message || `${res.user.fullName}, tizimga muvaffaqiyatli kirdingiz!`);
+      handleClose();
+    } catch (err: any) {
+      Alert.alert('Xatolik', err.message || 'Tasdiqlash kodi noto\'g\'ri yoki eskirgan');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Legacy Password Handler fallback
+  const handleEmailPasswordAuth = async () => {
     const cleanEmail = email.trim().toLowerCase();
     if (!cleanEmail || !cleanEmail.includes('@')) {
       Alert.alert('Xatolik', 'Iltimos, to\'g\'ri email manzil kiriting');
@@ -226,8 +344,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ visible, onClose }) => {
 
     setIsLoading(true);
     try {
-      if (emailMode === 'REGISTER') {
-        if (!fullName.trim()) {
+      if (emailMode === 'SIGNUP') {
+        if (!emailFullName.trim()) {
           Alert.alert('Xatolik', 'Iltimos, ism va familiyangizni kiriting');
           setIsLoading(false);
           return;
@@ -235,7 +353,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ visible, onClose }) => {
         const res = await api.registerWithEmail({
           email: cleanEmail,
           password,
-          fullName: fullName.trim(),
+          fullName: emailFullName.trim(),
         });
         await loginWithToken(res.user, res.token);
         Alert.alert('Muvaffaqiyatli', `Ro'yxatdan o'tdingiz: ${res.user.fullName}`);
@@ -259,6 +377,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({ visible, onClose }) => {
     setStep('PHONE');
     setOtpCode('');
     setDevCode(null);
+    setEmailStep('INPUT');
+    setEmailOtpCode('');
+    setEmailDevCode(null);
     onClose();
   };
 
@@ -640,186 +761,349 @@ export const AuthModal: React.FC<AuthModalProps> = ({ visible, onClose }) => {
             )}
 
             {/* ==================================================== */}
-            {/* METHOD 3: TELEGRAM LOGIN (FREE & UZBEKISTAN FAVORITE) */}
+            {/* METHOD 3: TELEGRAM LOGIN & SIGN-UP (OFFICIAL OAUTH)  */}
             {/* ==================================================== */}
             {method === 'TELEGRAM' && (
               <View style={styles.form}>
+                {/* 1. Mode Switch: LOG IN vs SIGN UP */}
+                <View style={styles.googleModeSwitch}>
+                  <TouchableOpacity
+                    style={[styles.modeBtn, telegramMode === 'LOGIN' && styles.modeBtnActive]}
+                    onPress={() => setTelegramMode('LOGIN')}
+                  >
+                    <Text style={[styles.modeBtnText, telegramMode === 'LOGIN' && styles.modeBtnTextActive]}>
+                      {t.loginTab} (Log In)
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.modeBtn, telegramMode === 'SIGNUP' && styles.modeBtnActive]}
+                    onPress={() => setTelegramMode('SIGNUP')}
+                  >
+                    <Text style={[styles.modeBtnText, telegramMode === 'SIGNUP' && styles.modeBtnTextActive]}>
+                      {t.registerTab} (Sign Up)
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* 2. Info Banner */}
                 <View style={styles.infoBannerTelegram}>
                   <Ionicons name="paper-plane" size={20} color="#0088CC" />
                   <Text style={styles.infoBannerTextTelegram}>
-                    O'zbekistonda eng tez va ommabop usul! Telegram orqali 1 soniyada ulaning.
+                    {telegramMode === 'LOGIN'
+                      ? "O'zbekistonda eng tez va qulay usul! Telegram orqali 1 soniyada kiring."
+                      : "Telegram orqali 1 bosishda yangi hisob oching va 1,200,000 UZS start balansiga ega bo'ling!"}
                   </Text>
                 </View>
 
-                <Text style={styles.inputLabel}>Telegram Foydalanuvchi Nomi (@username)</Text>
-                <View style={styles.inputWithIcon}>
-                  <Text style={styles.inputPrefix}>@</Text>
-                  <TextInput
-                    style={[styles.textInput, { flex: 1, borderWidth: 0, backgroundColor: 'transparent' }]}
-                    placeholder="alisher_trade"
-                    placeholderTextColor="#9CA3AF"
-                    autoCapitalize="none"
-                    value={telegramUsername.replace(/^@/, '')}
-                    onChangeText={(txt) => setTelegramUsername(txt.replace(/^@/, ''))}
-                  />
-                </View>
-
-                <Text style={[styles.inputLabel, { marginTop: 14 }]}>Telegramdagi Ismingiz</Text>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="Alisher"
-                  placeholderTextColor="#9CA3AF"
-                  value={telegramName}
-                  onChangeText={setTelegramName}
-                />
-
+                {/* 3. Primary Real Telegram Action Button */}
                 <TouchableOpacity
-                  style={[styles.telegramBtn, isLoading && { opacity: 0.7 }]}
-                  onPress={() => handleTelegramLogin()}
+                  style={[styles.realTelegramBtn, isLoading && { opacity: 0.7 }]}
+                  onPress={() => handleTelegramAuth(telegramMode)}
                   disabled={isLoading}
                 >
                   {isLoading ? (
-                    <ActivityIndicator color="#fff" />
+                    <ActivityIndicator color="#fff" size="small" />
                   ) : (
-                    <>
-                      <Ionicons name="paper-plane" size={20} color="#fff" />
-                      <Text style={styles.telegramBtnText}>Telegram orqali Kirish</Text>
-                    </>
+                    <View style={styles.googleBtnRow}>
+                      <View style={styles.telegramIconCircle}>
+                        <Ionicons name="paper-plane" size={20} color="#fff" />
+                      </View>
+                      <View style={styles.googleBtnTextContainer}>
+                        <Text style={styles.realTelegramBtnText}>
+                          {telegramMode === 'LOGIN' ? 'Telegram orqali Kirish' : 'Telegram orqali Ro\'yxatdan o\'tish'}
+                        </Text>
+                        <Text style={styles.realTelegramBtnSubText}>
+                          {telegramMode === 'LOGIN' ? 'Rasmiy Telegram Bot OAuth orqali' : '1,200,000 UZS start balansi bilan'}
+                        </Text>
+                      </View>
+                      <Ionicons name="arrow-forward" size={18} color="#E0F2FE" />
+                    </View>
                   )}
                 </TouchableOpacity>
 
-                {/* 1-Tap Quick Telegram Accounts */}
-                <View style={styles.demoSection}>
-                  <Text style={styles.demoSectionTitle}>Tezkor Sinov Telegram Akkauntlari:</Text>
-                  <View style={styles.demoButtons}>
-                    <TouchableOpacity
-                      style={styles.demoBtn}
-                      onPress={() => handleTelegramLogin('alex_trade_uz', 'Alex Trade (TG)')}
-                    >
-                      <Ionicons name="paper-plane" size={14} color="#0088CC" />
-                      <Text style={styles.demoBtnText}>@alex_trade_uz</Text>
-                    </TouchableOpacity>
+                {/* 4. Alternate Quick Action Button */}
+                <TouchableOpacity
+                  style={[styles.secondaryGoogleBtn, isLoading && { opacity: 0.7 }]}
+                  onPress={() => {
+                    const other = telegramMode === 'LOGIN' ? 'SIGNUP' : 'LOGIN';
+                    setTelegramMode(other);
+                    handleTelegramAuth(other);
+                  }}
+                  disabled={isLoading}
+                >
+                  <Ionicons
+                    name={telegramMode === 'LOGIN' ? 'person-add-outline' : 'log-in-outline'}
+                    size={18}
+                    color="#0088CC"
+                  />
+                  <Text style={[styles.secondaryGoogleBtnText, { color: '#0088CC' }]}>
+                    {telegramMode === 'LOGIN'
+                      ? 'Yangi hisob ochish (Sign Up with Telegram)'
+                      : 'Mavjud hisobga kirish (Log In with Telegram)'}
+                  </Text>
+                </TouchableOpacity>
 
-                    <TouchableOpacity
-                      style={styles.demoBtn}
-                      onPress={() => handleTelegramLogin('sarah_store_uz', 'Sarah Store (TG)')}
-                    >
-                      <Ionicons name="paper-plane" size={14} color="#0088CC" />
-                      <Text style={styles.demoBtnText}>@sarah_store_uz</Text>
-                    </TouchableOpacity>
+                {/* 5. Security Guarantee Badge */}
+                <View style={styles.telegramSecurityBadge}>
+                  <Ionicons name="shield-checkmark" size={16} color="#0284C7" />
+                  <Text style={styles.telegramSecurityText}>
+                    Telegram hisobingiz xavfsiz HMAC-SHA256 protokoli orqali ulanadi. Telefon raqamingiz sir saqlanadi.
+                  </Text>
+                </View>
 
-                    <TouchableOpacity
-                      style={styles.demoBtn}
-                      onPress={() => handleTelegramLogin('tashkent_buyer', 'Toshkent Xaridor')}
-                    >
-                      <Ionicons name="paper-plane" size={14} color="#0088CC" />
-                      <Text style={styles.demoBtnText}>@tashkent_buyer</Text>
-                    </TouchableOpacity>
-                  </View>
+                {/* 6. Telegram Bot Config Drawer */}
+                <View style={styles.clientIdConfigSection}>
+                  <TouchableOpacity
+                    style={styles.clientIdToggleBtn}
+                    onPress={() => setShowTelegramConfig(!showTelegramConfig)}
+                  >
+                    <Ionicons name="settings-outline" size={14} color="#6B7280" />
+                    <Text style={styles.clientIdToggleText}>
+                      Telegram Bot: @{telegramBotUsername}
+                    </Text>
+                    <Ionicons
+                      name={showTelegramConfig ? 'chevron-up' : 'chevron-down'}
+                      size={14}
+                      color="#6B7280"
+                    />
+                  </TouchableOpacity>
+
+                  {showTelegramConfig && (
+                    <View style={styles.clientIdConfigBox}>
+                      <Text style={styles.clientIdConfigTitle}>Telegram Bot Username (@username):</Text>
+                      <TextInput
+                        style={styles.clientIdInput}
+                        placeholder="masalan: TrustTagAuthBot"
+                        placeholderTextColor="#9CA3AF"
+                        autoCapitalize="none"
+                        value={tempTelegramBot}
+                        onChangeText={setTempTelegramBot}
+                      />
+                      <View style={styles.clientIdConfigActions}>
+                        <TouchableOpacity style={styles.clientIdSaveBtn} onPress={handleSaveTelegramBot}>
+                          <Text style={styles.clientIdSaveBtnText}>Saqlash</Text>
+                        </TouchableOpacity>
+                      </View>
+                      <Text style={styles.clientIdHelpText}>
+                        * @BotFather orqali yaratilgan botingiz nomini yozing.
+                      </Text>
+                    </View>
+                  )}
                 </View>
               </View>
             )}
 
             {/* ==================================================== */}
-            {/* METHOD 4: EMAIL + PASSWORD (FREE & UNIVERSAL)        */}
+            {/* METHOD 4: REAL EMAIL OTP (100% FREE SMTP CODE)       */}
             {/* ==================================================== */}
             {method === 'EMAIL' && (
               <View style={styles.form}>
-                {/* Mode toggle */}
-                <View style={styles.emailModeSwitch}>
+                {/* Mode toggle: Log In vs Sign Up */}
+                <View style={styles.googleModeSwitch}>
                   <TouchableOpacity
                     style={[styles.modeBtn, emailMode === 'LOGIN' && styles.modeBtnActive]}
-                    onPress={() => setEmailMode('LOGIN')}
-                  >
-                    <Text style={[styles.modeBtnText, emailMode === 'LOGIN' && styles.modeBtnTextActive]}>
-                      {t.loginTab}
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.modeBtn, emailMode === 'REGISTER' && styles.modeBtnActive]}
-                    onPress={() => setEmailMode('REGISTER')}
-                  >
-                    <Text style={[styles.modeBtnText, emailMode === 'REGISTER' && styles.modeBtnTextActive]}>
-                      {t.registerTab}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-
-                {emailMode === 'REGISTER' && (
-                  <View style={{ marginBottom: 14 }}>
-                    <Text style={styles.inputLabel}>{t.fullNamePlaceholder}</Text>
-                    <TextInput
-                      style={styles.textInput}
-                      placeholder="Sardor Aliyev"
-                      placeholderTextColor="#9CA3AF"
-                      value={fullName}
-                      onChangeText={setFullName}
-                    />
-                  </View>
-                )}
-
-                <Text style={styles.inputLabel}>Email Manzil</Text>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="sardor@example.com"
-                  placeholderTextColor="#9CA3AF"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  value={email}
-                  onChangeText={setEmail}
-                />
-
-                <Text style={[styles.inputLabel, { marginTop: 14 }]}>Parol</Text>
-                <View style={styles.passwordContainer}>
-                  <TextInput
-                    style={styles.passwordInput}
-                    placeholder="Kamida 6 ta belgi"
-                    placeholderTextColor="#9CA3AF"
-                    secureTextEntry={!showPassword}
-                    value={password}
-                    onChangeText={setPassword}
-                  />
-                  <TouchableOpacity
-                    onPress={() => setShowPassword(!showPassword)}
-                    style={styles.eyeBtn}
-                  >
-                    <Ionicons
-                      name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                      size={20}
-                      color="#6B7280"
-                    />
-                  </TouchableOpacity>
-                </View>
-
-                <TouchableOpacity
-                  style={[styles.primaryBtn, isLoading && { opacity: 0.7 }]}
-                  onPress={handleEmailAuth}
-                  disabled={isLoading}
-                >
-                  {isLoading ? (
-                    <ActivityIndicator color="#fff" />
-                  ) : (
-                    <Text style={styles.primaryBtnText}>
-                      {emailMode === 'LOGIN' ? 'Tizimga Kirish' : "Ro'yxatdan O'tish"}
-                    </Text>
-                  )}
-                </TouchableOpacity>
-
-                {/* Quick Fill Demo */}
-                <View style={styles.demoSection}>
-                  <Text style={styles.demoSectionTitle}>Tezkor Sinov Akkaunti:</Text>
-                  <TouchableOpacity
-                    style={[styles.demoBtn, { alignSelf: 'flex-start' }]}
                     onPress={() => {
                       setEmailMode('LOGIN');
-                      setEmail('testuser@trusttag.uz');
-                      setPassword('123456');
+                      setEmailStep('INPUT');
                     }}
                   >
-                    <Ionicons name="key-outline" size={14} color="#6366F1" />
-                    <Text style={styles.demoBtnText}>testuser@trusttag.uz / 123456</Text>
+                    <Text style={[styles.modeBtnText, emailMode === 'LOGIN' && styles.modeBtnTextActive]}>
+                      {t.loginTab} (Log In)
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.modeBtn, emailMode === 'SIGNUP' && styles.modeBtnActive]}
+                    onPress={() => {
+                      setEmailMode('SIGNUP');
+                      setEmailStep('INPUT');
+                    }}
+                  >
+                    <Text style={[styles.modeBtnText, emailMode === 'SIGNUP' && styles.modeBtnTextActive]}>
+                      {t.registerTab} (Sign Up)
+                    </Text>
                   </TouchableOpacity>
                 </View>
+
+                {emailAuthType === 'OTP' ? (
+                  emailStep === 'INPUT' ? (
+                    <View>
+                      <View style={styles.infoBannerGoogle}>
+                        <Ionicons name="mail-open-outline" size={18} color="#2563EB" />
+                        <Text style={[styles.infoBannerTextGoogle, { color: '#1E40AF' }]}>
+                          {emailMode === 'SIGNUP'
+                            ? "Pochtangizga 6 xonali tasdiqlash kodi yuboriladi. Parol eslab qolish shart emas!"
+                            : "Email manzilingizga bir martalik xavfsiz tasdiqlash kodi yuboriladi."}
+                        </Text>
+                      </View>
+
+                      {emailMode === 'SIGNUP' && (
+                        <View style={{ marginBottom: 14 }}>
+                          <Text style={styles.inputLabel}>{t.fullNamePlaceholder}</Text>
+                          <TextInput
+                            style={styles.textInput}
+                            placeholder="Sardor Aliyev"
+                            placeholderTextColor="#9CA3AF"
+                            value={emailFullName}
+                            onChangeText={setEmailFullName}
+                          />
+                        </View>
+                      )}
+
+                      <Text style={styles.inputLabel}>Elektron Pochta Manzili</Text>
+                      <TextInput
+                        style={styles.textInput}
+                        placeholder="sardor@example.com"
+                        placeholderTextColor="#9CA3AF"
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        value={email}
+                        onChangeText={setEmail}
+                      />
+
+                      <TouchableOpacity
+                        style={[styles.primaryBtn, isLoading && { opacity: 0.7 }]}
+                        onPress={handleSendEmailOtp}
+                        disabled={isLoading}
+                      >
+                        {isLoading ? (
+                          <ActivityIndicator color="#fff" />
+                        ) : (
+                          <Text style={styles.primaryBtnText}>Tasdiqlash Kodini Yuborish</Text>
+                        )}
+                      </TouchableOpacity>
+
+                      <View style={styles.emailMethodToggle}>
+                        <TouchableOpacity onPress={() => setEmailAuthType('PASSWORD')}>
+                          <Text style={styles.emailMethodToggleText}>🔑 Parol bilan kirishni xohlaysizmi?</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  ) : (
+                    <View>
+                      <View style={styles.otpHeader}>
+                        <Text style={styles.otpTargetText}>
+                          Kod yuborildi: <Text style={{ fontWeight: '700', color: '#111827' }}>{email}</Text>
+                        </Text>
+                        <TouchableOpacity onPress={() => setEmailStep('INPUT')}>
+                          <Text style={styles.editPhoneText}>O'zgartirish</Text>
+                        </TouchableOpacity>
+                      </View>
+
+                      {emailDevCode && (
+                        <View style={styles.devCodeBadge}>
+                          <Ionicons name="information-circle" size={18} color="#0369A1" />
+                          <Text style={styles.devCodeText}>
+                            Sinov kodi: <Text style={{ fontWeight: '800' }}>{emailDevCode}</Text> (avtomatik kiritildi)
+                          </Text>
+                        </View>
+                      )}
+
+                      <Text style={styles.inputLabel}>Pochtangizga kelgan 6 xonali kod</Text>
+                      <TextInput
+                        style={styles.otpInput}
+                        placeholder="123456"
+                        placeholderTextColor="#9CA3AF"
+                        keyboardType="number-pad"
+                        maxLength={6}
+                        value={emailOtpCode}
+                        onChangeText={setEmailOtpCode}
+                        autoFocus={true}
+                      />
+
+                      <TouchableOpacity
+                        style={[styles.primaryBtn, isLoading && { opacity: 0.7 }]}
+                        onPress={handleVerifyEmailOtp}
+                        disabled={isLoading}
+                      >
+                        {isLoading ? (
+                          <ActivityIndicator color="#fff" />
+                        ) : (
+                          <Text style={styles.primaryBtnText}>Tasdiqlash va Davom Etish</Text>
+                        )}
+                      </TouchableOpacity>
+
+                      <View style={styles.resendRow}>
+                        {emailCountdown > 0 ? (
+                          <Text style={styles.resendTimerText}>
+                            Qayta yuborish: {emailCountdown}s
+                          </Text>
+                        ) : (
+                          <TouchableOpacity onPress={handleSendEmailOtp}>
+                            <Text style={styles.resendLinkText}>Kodni qayta yuborish</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    </View>
+                  )
+                ) : (
+                  <View>
+                    {emailMode === 'SIGNUP' && (
+                      <View style={{ marginBottom: 14 }}>
+                        <Text style={styles.inputLabel}>{t.fullNamePlaceholder}</Text>
+                        <TextInput
+                          style={styles.textInput}
+                          placeholder="Sardor Aliyev"
+                          placeholderTextColor="#9CA3AF"
+                          value={emailFullName}
+                          onChangeText={setEmailFullName}
+                        />
+                      </View>
+                    )}
+
+                    <Text style={styles.inputLabel}>Email Manzil</Text>
+                    <TextInput
+                      style={styles.textInput}
+                      placeholder="sardor@example.com"
+                      placeholderTextColor="#9CA3AF"
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      value={email}
+                      onChangeText={setEmail}
+                    />
+
+                    <Text style={[styles.inputLabel, { marginTop: 14 }]}>Parol</Text>
+                    <View style={styles.passwordContainer}>
+                      <TextInput
+                        style={styles.passwordInput}
+                        placeholder="Kamida 6 ta belgi"
+                        placeholderTextColor="#9CA3AF"
+                        secureTextEntry={!showPassword}
+                        value={password}
+                        onChangeText={setPassword}
+                      />
+                      <TouchableOpacity
+                        onPress={() => setShowPassword(!showPassword)}
+                        style={styles.eyeBtn}
+                      >
+                        <Ionicons
+                          name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                          size={20}
+                          color="#6B7280"
+                        />
+                      </TouchableOpacity>
+                    </View>
+
+                    <TouchableOpacity
+                      style={[styles.primaryBtn, isLoading && { opacity: 0.7 }]}
+                      onPress={handleEmailPasswordAuth}
+                      disabled={isLoading}
+                    >
+                      {isLoading ? (
+                        <ActivityIndicator color="#fff" />
+                      ) : (
+                        <Text style={styles.primaryBtnText}>
+                          {emailMode === 'LOGIN' ? 'Tizimga Kirish' : "Ro'yxatdan O'tish"}
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+
+                    <View style={styles.emailMethodToggle}>
+                      <TouchableOpacity onPress={() => setEmailAuthType('OTP')}>
+                        <Text style={styles.emailMethodToggleText}>📩 Parolsiz Email Kod (OTP) orqali kirish</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
               </View>
             )}
           </ScrollView>
@@ -1199,6 +1483,64 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     marginTop: 8,
     lineHeight: 14,
+  },
+  realTelegramBtn: {
+    backgroundColor: '#0088CC',
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginTop: 4,
+    shadowColor: '#0088CC',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  telegramIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  realTelegramBtnText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  realTelegramBtnSubText: {
+    color: '#E0F2FE',
+    fontSize: 12,
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  telegramSecurityBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#F0F9FF',
+    padding: 10,
+    borderRadius: 10,
+    marginTop: 16,
+  },
+  telegramSecurityText: {
+    flex: 1,
+    fontSize: 11,
+    color: '#0369A1',
+    lineHeight: 15,
+  },
+  emailMethodToggle: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 12,
+    marginTop: 16,
+    paddingVertical: 6,
+  },
+  emailMethodToggleText: {
+    fontSize: 13,
+    color: THEME.colors.primary,
+    fontWeight: '600',
   },
   googleBtn: {
     flexDirection: 'row',

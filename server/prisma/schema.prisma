@@ -267,7 +267,8 @@ model Notification {
 
 model OtpVerification {
   id          String   @id @default(uuid())
-  phoneNumber String
+  phoneNumber String?
+  email       String?
   code        String
   expiresAt   DateTime
   verified    Boolean  @default(false)
@@ -275,6 +276,7 @@ model OtpVerification {
   createdAt   DateTime @default(now())
 
   @@index([phoneNumber])
+  @@index([email])
 }
 
 
