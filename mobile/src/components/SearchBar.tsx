@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, TextInput, TouchableOpacity, Text, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { THEME } from '../theme';
 
@@ -8,27 +8,11 @@ interface SearchBarProps {
   onClear: () => void;
 }
 
-const TRENDING_SEARCHES = [
-  'iPhone 14 Pro Max',
-  'Steam Account CS2',
-  'MacBook Air M2',
-  'PS5 Consoles',
-  'Digital Software Keys',
-];
-
 export const SearchBar: React.FC<SearchBarProps> = ({ onSearch, onClear }) => {
   const [query, setQuery] = useState('');
-  const [placeholderIndex, setPlaceholderIndex] = useState(0);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setPlaceholderIndex((prev) => (prev + 1) % TRENDING_SEARCHES.length);
-    }, 4000);
-    return () => clearInterval(timer);
-  }, []);
 
   const handleSearchSubmit = () => {
-    onSearch(query.trim() || TRENDING_SEARCHES[placeholderIndex]);
+    onSearch(query.trim());
   };
 
   const handleClear = () => {
@@ -39,10 +23,10 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSearch, onClear }) => {
   return (
     <View style={styles.container}>
       <View style={styles.capsule}>
-        <Ionicons name="search" size={18} color={THEME.colors.primary} style={styles.searchIcon} />
+        <Ionicons name="search-outline" size={20} color={THEME.colors.textSecondary} style={styles.searchIcon} />
         <TextInput
           style={styles.input}
-          placeholder={`Search "${TRENDING_SEARCHES[placeholderIndex]}"...`}
+          placeholder="Search for products..."
           placeholderTextColor={THEME.colors.textMuted}
           value={query}
           onChangeText={setQuery}
@@ -50,15 +34,16 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSearch, onClear }) => {
           returnKeyType="search"
         />
         {query.length > 0 && (
-          <TouchableOpacity onPress={handleClear} style={styles.clearIcon}>
-            <Ionicons name="close-circle" size={16} color={THEME.colors.textMuted} />
+          <TouchableOpacity onPress={handleClear} style={styles.clearBtn}>
+            <Ionicons name="close-circle" size={18} color={THEME.colors.textMuted} />
           </TouchableOpacity>
         )}
-        <TouchableOpacity style={styles.cameraIcon} onPress={() => alert('Photo / Visual Search simulated')}>
-          <Ionicons name="camera-outline" size={20} color={THEME.colors.primary} />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.searchButton} onPress={handleSearchSubmit}>
-          <Text style={styles.searchButtonText}>Search</Text>
+        <TouchableOpacity
+          style={styles.searchButton}
+          onPress={handleSearchSubmit}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="search" size={18} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
     </View>
@@ -67,49 +52,47 @@ export const SearchBar: React.FC<SearchBarProps> = ({ onSearch, onClear }) => {
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: THEME.colors.background,
   },
   capsule: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 44,
+    height: 48,
     borderRadius: THEME.borderRadius.pill,
-    borderWidth: 2,
-    borderColor: THEME.colors.primary,
+    borderWidth: 1,
+    borderColor: THEME.colors.borderSubtle,
     backgroundColor: '#FFFFFF',
-    paddingLeft: 12,
-    paddingRight: 4,
+    paddingLeft: 14,
+    paddingRight: 5,
+    ...THEME.shadows.card,
   },
   searchIcon: {
-    marginRight: 6,
+    marginRight: 8,
   },
   input: {
     flex: 1,
     height: '100%',
-    fontSize: 13,
-    color: THEME.colors.textPrimary,
+    fontSize: 14,
+    fontWeight: '400',
+    color: THEME.colors.textDark,
   },
-  clearIcon: {
-    padding: 4,
-  },
-  cameraIcon: {
+  clearBtn: {
     padding: 6,
-    marginRight: 4,
+    marginRight: 2,
   },
   searchButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: THEME.colors.primary,
-    height: 34,
-    paddingHorizontal: 16,
-    borderRadius: THEME.borderRadius.pill,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  searchButtonText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
+    shadowColor: THEME.colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 3,
   },
 });
-

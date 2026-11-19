@@ -260,45 +260,45 @@ function MainApp() {
             <View style={styles.filterToolbar}>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsScroll}>
                 {/* Product Type Chips */}
-                {(['ALL', 'PHYSICAL', 'ONLINE'] as const).map((type) => (
-                  <TouchableOpacity
-                    key={type}
-                    style={[styles.filterChip, productTypeFilter === type && styles.filterChipActive]}
-                    onPress={() => setProductTypeFilter(type)}
-                  >
-                    <Text style={[styles.filterChipText, productTypeFilter === type && styles.filterChipTextActive]}>
-                      {type === 'ALL' ? 'All Goods' : type === 'PHYSICAL' ? 'Physical Only' : 'Digital / Online'}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                {(['ALL', 'PHYSICAL', 'ONLINE'] as const).map((type) => {
+                  const isActive = productTypeFilter === type;
+                  return (
+                    <TouchableOpacity
+                      key={type}
+                      style={[styles.filterChip, isActive ? styles.filterChipActive : styles.filterChipInactive]}
+                      onPress={() => setProductTypeFilter(type)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[styles.filterChipText, isActive ? styles.filterChipTextActive : styles.filterChipTextInactive]}>
+                        {type === 'ALL' ? 'All' : type === 'PHYSICAL' ? 'Physical' : 'Digital'}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
 
                 <View style={styles.chipDivider} />
 
-                {/* Sort Chips */}
+                {/* Filter Action Button */}
                 <TouchableOpacity
-                  style={[styles.filterChip, sortBy === 'newest' && styles.filterChipActive]}
-                  onPress={() => setSortBy('newest')}
+                  style={styles.filterActionBtn}
+                  onPress={() => setLocationModalVisible(true)}
+                  activeOpacity={0.8}
                 >
-                  <Text style={[styles.filterChipText, sortBy === 'newest' && styles.filterChipTextActive]}>
-                    Newest
-                  </Text>
+                  <Ionicons name="funnel-outline" size={13} color={THEME.colors.textDark} />
+                  <Text style={styles.filterActionText}>Filter</Text>
                 </TouchableOpacity>
 
+                {/* Sort Action Button */}
                 <TouchableOpacity
-                  style={[styles.filterChip, sortBy === 'price_asc' && styles.filterChipActive]}
-                  onPress={() => setSortBy('price_asc')}
+                  style={styles.filterActionBtn}
+                  onPress={() => {
+                    setSortBy((prev) => (prev === 'newest' ? 'price_asc' : prev === 'price_asc' ? 'price_desc' : 'newest'));
+                  }}
+                  activeOpacity={0.8}
                 >
-                  <Text style={[styles.filterChipText, sortBy === 'price_asc' && styles.filterChipTextActive]}>
-                    Price: Low to High
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.filterChip, sortBy === 'price_desc' && styles.filterChipActive]}
-                  onPress={() => setSortBy('price_desc')}
-                >
-                  <Text style={[styles.filterChipText, sortBy === 'price_desc' && styles.filterChipTextActive]}>
-                    Price: High to Low
+                  <Ionicons name="swap-vertical-outline" size={13} color={THEME.colors.textDark} />
+                  <Text style={styles.filterActionText}>
+                    {sortBy === 'newest' ? 'Sort' : sortBy === 'price_asc' ? 'Low → High' : 'High → Low'}
                   </Text>
                 </TouchableOpacity>
               </ScrollView>
@@ -307,10 +307,12 @@ function MainApp() {
             {/* Product Feed Header */}
             <View style={styles.feedHeader}>
               <View style={styles.feedTitleRow}>
-                <Ionicons name="sparkles" size={16} color={THEME.colors.primary} />
+                <Ionicons name="sparkles" size={17} color={THEME.colors.primary} />
                 <Text style={styles.feedHeading}>Explore Discovery Feed</Text>
               </View>
-              <Text style={styles.itemCountText}>{products.length} Items Available</Text>
+              <TouchableOpacity onPress={() => { setSelectedCategory('All'); setProductTypeFilter('ALL'); }}>
+                <Text style={styles.seeAllText}>See all →</Text>
+              </TouchableOpacity>
             </View>
 
             {/* 2-Column Waterfall / Masonry Grid */}
@@ -1109,6 +1111,7 @@ function MainApp() {
         <TouchableOpacity
           style={styles.tabItem}
           onPress={() => setActiveTab('MARKETPLACE')}
+          activeOpacity={0.8}
         >
           <Ionicons
             name={activeTab === 'MARKETPLACE' ? 'storefront' : 'storefront-outline'}
@@ -1116,39 +1119,42 @@ function MainApp() {
             color={activeTab === 'MARKETPLACE' ? THEME.colors.primary : THEME.colors.textSecondary}
           />
           <Text style={[styles.tabLabel, activeTab === 'MARKETPLACE' && styles.tabLabelActive]}>
-            {t.marketplace || 'Market'}
+            Market
           </Text>
+          {activeTab === 'MARKETPLACE' && <View style={styles.activeTabIndicator} />}
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.tabItem}
           onPress={() => setActiveTab('MY_TRADES')}
+          activeOpacity={0.8}
         >
           <Ionicons
-            name={activeTab === 'MY_TRADES' ? 'chatbubbles' : 'chatbubbles-outline'}
+            name={activeTab === 'MY_TRADES' ? 'search' : 'search-outline'}
             size={22}
             color={activeTab === 'MY_TRADES' ? THEME.colors.primary : THEME.colors.textSecondary}
           />
           <Text style={[styles.tabLabel, activeTab === 'MY_TRADES' && styles.tabLabelActive]}>
-            {t.chats || 'Chats'}
+            Explore
           </Text>
+          {activeTab === 'MY_TRADES' && <View style={styles.activeTabIndicator} />}
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.tabItem}
+          style={styles.centerTabItem}
           onPress={() => setAddProductModalVisible(true)}
+          activeOpacity={0.85}
         >
           <View style={styles.centerPostPill}>
-            <Ionicons name="add" size={24} color="#FFF" />
+            <Ionicons name="add" size={26} color="#FFFFFF" />
           </View>
-          <Text style={[styles.tabLabel, { marginTop: 2 }]}>
-            {t.addProduct || 'Sell'}
-          </Text>
+          <Text style={styles.centerTabLabel}>Sell</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.tabItem}
           onPress={() => setWalletModalVisible(true)}
+          activeOpacity={0.8}
         >
           <Ionicons
             name={activeTab === 'WALLET' ? 'wallet' : 'wallet-outline'}
@@ -1156,13 +1162,15 @@ function MainApp() {
             color={activeTab === 'WALLET' ? THEME.colors.primary : THEME.colors.textSecondary}
           />
           <Text style={[styles.tabLabel, activeTab === 'WALLET' && styles.tabLabelActive]}>
-            {t.wallet || 'Wallet'}
+            Wallet
           </Text>
+          {activeTab === 'WALLET' && <View style={styles.activeTabIndicator} />}
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.tabItem}
           onPress={() => setActiveTab('PROFILE')}
+          activeOpacity={0.8}
         >
           <Ionicons
             name={activeTab === 'PROFILE' ? 'person' : 'person-outline'}
@@ -1170,8 +1178,9 @@ function MainApp() {
             color={activeTab === 'PROFILE' ? THEME.colors.primary : THEME.colors.textSecondary}
           />
           <Text style={[styles.tabLabel, activeTab === 'PROFILE' && styles.tabLabelActive]}>
-            {t.profile || 'Profile'}
+            Profile
           </Text>
+          {activeTab === 'PROFILE' && <View style={styles.activeTabIndicator} />}
         </TouchableOpacity>
       </View>
 
@@ -1295,49 +1304,65 @@ const styles = StyleSheet.create({
     backgroundColor: THEME.colors.canvasBg,
   },
   filterToolbar: {
-    backgroundColor: '#FFFFFF',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: THEME.colors.borderSubtle,
+    backgroundColor: THEME.colors.background,
+    paddingVertical: 6,
   },
   chipsScroll: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     alignItems: 'center',
     gap: 8,
   },
   filterChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 7,
     borderRadius: THEME.borderRadius.pill,
-    backgroundColor: THEME.colors.canvasBg,
   },
   filterChipActive: {
-    backgroundColor: THEME.colors.primaryTint,
-    borderWidth: 1,
-    borderColor: THEME.colors.primary,
+    backgroundColor: THEME.colors.primary,
+  },
+  filterChipInactive: {
+    backgroundColor: '#F1F5F9',
   },
   filterChipText: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '600',
-    color: THEME.colors.textSecondary,
   },
   filterChipTextActive: {
-    color: THEME.colors.primary,
+    color: '#FFFFFF',
     fontWeight: '700',
+  },
+  filterChipTextInactive: {
+    color: THEME.colors.textDark,
   },
   chipDivider: {
     width: 1,
     height: 18,
-    backgroundColor: THEME.colors.borderMedium,
+    backgroundColor: '#CBD5E1',
     marginHorizontal: 4,
+  },
+  filterActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: THEME.borderRadius.pill,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 5,
+  },
+  filterActionText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: THEME.colors.textDark,
   },
   feedHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingTop: 12,
-    paddingBottom: 8,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 10,
   },
   feedTitleRow: {
     flexDirection: 'row',
@@ -1345,9 +1370,14 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   feedHeading: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: THEME.colors.textPrimary,
+    fontSize: 17,
+    fontWeight: '700',
+    color: THEME.colors.textDark,
+  },
+  seeAllText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: THEME.colors.primary,
   },
   itemCountText: {
     fontSize: 11,
@@ -1355,8 +1385,8 @@ const styles = StyleSheet.create({
   },
   masonryGrid: {
     flexDirection: 'row',
-    paddingHorizontal: 10,
-    gap: 10,
+    paddingHorizontal: 16,
+    gap: 12,
   },
   column: {
     flex: 1,
@@ -2128,33 +2158,57 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
-    borderTopColor: THEME.colors.borderSubtle,
+    borderTopColor: '#F1F5F9',
     paddingVertical: 8,
     paddingHorizontal: 4,
+    height: 64,
   },
   tabItem: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  tabLabel: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: THEME.colors.textSecondary,
-    marginTop: 3,
-  },
-  tabLabelActive: {
-    color: THEME.colors.primary,
-    fontWeight: '800',
+  centerTabItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: -14,
   },
   centerPostPill: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: THEME.colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    ...THEME.shadows.card,
+    shadowColor: THEME.colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  centerTabLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: THEME.colors.textDark,
+    marginTop: 2,
+  },
+  tabLabel: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: THEME.colors.textSecondary,
+    marginTop: 2,
+  },
+  tabLabelActive: {
+    color: THEME.colors.primary,
+    fontWeight: '700',
+  },
+  activeTabIndicator: {
+    width: 20,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: THEME.colors.primary,
+    marginTop: 3,
   },
   langChip: {
     paddingHorizontal: 12,

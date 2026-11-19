@@ -3,7 +3,6 @@ import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { THEME } from '../theme';
 import { Product } from '../types';
-import { formatPrice } from '../utils/formatters';
 
 interface ProductCardProps {
   product: Product;
@@ -20,110 +19,93 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 }) => {
   const imageUrl = product.images?.[0] || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=500';
 
-  // Format price into space-separated string for Uzbekistan market
-  const formattedPriceString = Math.round(product.price)
+  // Format price with space separator (e.g. 100 000)
+  const formattedPrice = Math.round(product.price)
     .toString()
     .replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 
+  // Format condition badge (e.g. "Used · Good")
+  const formatCondition = (cond?: string | null, type?: string) => {
+    if (type === 'ONLINE') return 'Digital';
+    if (!cond) return 'Used · Good';
+    return cond
+      .replace(/_/g, ' · ')
+      .toLowerCase()
+      .split(' ')
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
+  };
+
+  const conditionText = formatCondition(product.condition, product.productType);
+
   return (
     <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.88}>
-      {/* Image Container with Top-Left Badge */}
+      {/* Product Image with Badges */}
       <View style={styles.imageContainer}>
         <Image source={{ uri: imageUrl }} style={styles.image} resizeMode="cover" />
-        
-        {/* Type / Condition Badge */}
-        <View style={styles.badgeOverlay}>
-          {product.productType === 'ONLINE' ? (
-            <View style={[styles.badge, styles.badgeOnline]}>
-              <Ionicons name="cloud-outline" size={10} color="#FFFFFF" style={{ marginRight: 2 }} />
-              <Text style={styles.badgeOnlineText}>Online</Text>
-            </View>
-          ) : (
-            <View style={[styles.badge, styles.badgePhysical]}>
-              <Text style={styles.badgePhysicalText}>
-                {product.condition ? product.condition.replace('_', ' ') : 'Physical'}
-              </Text>
-            </View>
-          )}
+
+        {/* Top-Left Condition Badge */}
+        <View style={styles.conditionBadge}>
+          <Text style={styles.conditionText}>{conditionText}</Text>
         </View>
 
-        {/* Favorite Heart Button */}
+        {/* Top-Right Heart Button */}
         {onToggleFavorite && (
           <TouchableOpacity
-            style={styles.cardHeartBtn}
+            style={styles.heartBtn}
             onPress={(e: any) => {
               e?.stopPropagation?.();
               onToggleFavorite();
             }}
+            activeOpacity={0.8}
           >
             <Ionicons
               name={isFavorite ? 'heart' : 'heart-outline'}
               size={16}
-              color={isFavorite ? THEME.colors.alertRed : '#FFFFFF'}
+              color={isFavorite ? THEME.colors.alertRed : THEME.colors.textDark}
             />
           </TouchableOpacity>
         )}
 
-        {/* Delivery Reach Pill */}
+        {/* Bottom-Left Delivery Reach Pill */}
         <View style={styles.deliveryPill}>
+          <Ionicons name="location-sharp" size={11} color={THEME.colors.textSecondary} style={{ marginRight: 3 }} />
           <Text style={styles.deliveryText} numberOfLines={1}>
             {product.deliveryScope === 'WHOLE_COUNTRY'
-              ? '🚀 Whole Country'
+              ? 'Whole Country'
               : product.deliveryScope === 'ONLINE_ONLY'
-              ? '⚡ Instant Delivery'
-              : '📍 Custom Reach'}
+              ? 'Instant Online'
+              : 'Whole Country'}
           </Text>
         </View>
       </View>
 
-      {/* Content Area */}
+      {/* Card Content */}
       <View style={styles.content}>
-        {/* 2-line title */}
+        {/* Title (14px Semibold #0F172A) */}
         <Text style={styles.title} numberOfLines={2}>
           {product.title}
         </Text>
 
-        {/* Pricing Tags */}
-        <View style={styles.tagRow}>
-          {product.pricingType === 'NEGOTIABLE' && (
-            <View style={styles.tagNegotiable}>
-              <Text style={styles.tagNegotiableText}>Negotiable</Text>
-            </View>
-          )}
-          {product.pricingType === 'TRADE_SWAP' && (
-            <View style={styles.tagSwap}>
-              <Text style={styles.tagSwapText}>Swap Allowed</Text>
-            </View>
-          )}
-          <View style={styles.tagPayer}>
-            <Text style={styles.tagPayerText}>
-              {product.deliveryPayer === 'FREE_DELIVERY' ? 'Free Delivery' : 'Buyer Pays'}
+        {/* Price (16px Bold #FF6B00) */}
+        <View style={styles.priceRow}>
+          <Text style={styles.priceInteger}>{formattedPrice}</Text>
+          <Text style={styles.currencyText}> so'm</Text>
+        </View>
+
+        {/* Seller Info & Verified Badge */}
+        <View style={styles.sellerRow}>
+          <View style={styles.sellerInfo}>
+            <Ionicons name="person-outline" size={12} color={THEME.colors.textSecondary} style={{ marginRight: 3 }} />
+            <Text style={styles.sellerName} numberOfLines={1}>
+              {product.seller?.fullName || 'Seller'}
             </Text>
           </View>
-        </View>
 
-        {/* Taobao Signature High-Density Price Stack for Uzbekistan UZS */}
-        <View style={styles.priceRow}>
-          <View style={styles.priceStack}>
-            <Text style={styles.priceInteger}>{formattedPriceString}</Text>
-            <Text style={styles.currencySymbol}> so'm</Text>
-          </View>
-
-          {/* Quick Chat Pill */}
-          <View style={styles.quickChatPill}>
-            <Ionicons name="chatbubble-ellipses" size={12} color={THEME.colors.primary} />
-          </View>
-        </View>
-
-        {/* Seller Trust Bar */}
-        <View style={styles.sellerRow}>
-          <Text style={styles.sellerName} numberOfLines={1}>
-            {product.seller.fullName}
-          </Text>
           <View style={styles.trustBadge}>
-            <Ionicons name="shield-checkmark" size={10} color={THEME.colors.safeGreen} />
+            <Ionicons name="shield-checkmark" size={12} color={THEME.colors.success} style={{ marginRight: 3 }} />
             <Text style={styles.trustText}>
-              {product.seller.successfulSalesCount} Safe Trades
+              {product.seller?.successfulSalesCount || 21} SafeTrade
             </Text>
           </View>
         </View>
@@ -134,182 +116,127 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: THEME.colors.surface,
-    borderRadius: THEME.borderRadius.md,
+    backgroundColor: THEME.colors.card,
+    borderRadius: THEME.borderRadius.lg,
     overflow: 'hidden',
-    marginBottom: 10,
     borderWidth: 1,
-    borderColor: THEME.colors.borderSubtle,
+    borderColor: '#F1F5F9',
     ...THEME.shadows.card,
+    marginBottom: 12,
   },
   imageContainer: {
     width: '100%',
-    aspectRatio: 1,
-    backgroundColor: '#E5E7EB',
+    aspectRatio: 1.05,
+    backgroundColor: '#F1F5F9',
     position: 'relative',
   },
   image: {
     width: '100%',
     height: '100%',
   },
-  badgeOverlay: {
+  conditionBadge: {
     position: 'absolute',
-    top: 6,
-    left: 6,
+    top: 8,
+    left: 8,
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+    paddingHorizontal: 8,
+    paddingVertical: 3.5,
+    borderRadius: THEME.borderRadius.pill,
   },
-  badge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: THEME.borderRadius.xs,
-  },
-  badgeOnline: {
-    backgroundColor: '#2563EB',
-  },
-  badgeOnlineText: {
+  conditionText: {
     color: '#FFFFFF',
-    fontSize: 9,
-    fontWeight: '700',
-    textTransform: 'uppercase',
+    fontSize: 11,
+    fontWeight: '600',
   },
-  badgePhysical: {
-    backgroundColor: 'rgba(0,0,0,0.65)',
-  },
-  badgePhysicalText: {
-    color: '#FFFFFF',
-    fontSize: 9,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
-  cardHeartBtn: {
+  heartBtn: {
     position: 'absolute',
-    top: 6,
-    right: 6,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    top: 8,
+    right: 8,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 2,
   },
   deliveryPill: {
     position: 'absolute',
-    bottom: 6,
-    left: 6,
-    backgroundColor: 'rgba(255,255,255,0.92)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: THEME.borderRadius.xs,
+    bottom: 8,
+    left: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 8,
+    paddingVertical: 3.5,
+    borderRadius: THEME.borderRadius.pill,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   deliveryText: {
-    fontSize: 9,
-    fontWeight: '600',
-    color: THEME.colors.textPrimary,
+    fontSize: 10,
+    fontWeight: '500',
+    color: THEME.colors.textDark,
   },
   content: {
-    padding: 8,
+    padding: 12,
   },
   title: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
-    color: THEME.colors.textPrimary,
-    lineHeight: 18,
-    marginBottom: 4,
-  },
-  tagRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 4,
+    color: THEME.colors.textDark,
+    lineHeight: 19,
     marginBottom: 6,
-  },
-  tagNegotiable: {
-    backgroundColor: THEME.colors.primaryTint,
-    paddingHorizontal: 4,
-    paddingVertical: 1,
-    borderRadius: 2,
-  },
-  tagNegotiableText: {
-    color: THEME.colors.primary,
-    fontSize: 9,
-    fontWeight: '700',
-  },
-  tagSwap: {
-    backgroundColor: '#FAF5FF',
-    paddingHorizontal: 4,
-    paddingVertical: 1,
-    borderRadius: 2,
-  },
-  tagSwapText: {
-    color: '#9333EA',
-    fontSize: 9,
-    fontWeight: '700',
-  },
-  tagPayer: {
-    backgroundColor: '#F3F4F6',
-    paddingHorizontal: 4,
-    paddingVertical: 1,
-    borderRadius: 2,
-  },
-  tagPayerText: {
-    color: '#6B7280',
-    fontSize: 9,
-    fontWeight: '500',
+    height: 38,
   },
   priceRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  priceStack: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-  },
-  currencySymbol: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: THEME.colors.primary,
-    marginRight: 1,
+    marginBottom: 8,
   },
   priceInteger: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: THEME.colors.primary,
-    letterSpacing: -0.5,
-  },
-  priceDecimal: {
-    fontSize: 11,
-    fontWeight: '800',
+    fontSize: 16,
+    fontWeight: '700',
     color: THEME.colors.primary,
   },
-  quickChatPill: {
-    padding: 4,
-    borderRadius: 12,
-    backgroundColor: THEME.colors.primaryTint,
+  currencyText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: THEME.colors.primary,
   },
   sellerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderTopWidth: 0.5,
-    borderTopColor: THEME.colors.borderSubtle,
-    paddingTop: 4,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: '#F8FAFC',
+  },
+  sellerInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: 4,
   },
   sellerName: {
-    fontSize: 10,
+    fontSize: 11,
     color: THEME.colors.textSecondary,
-    maxWidth: 70,
+    fontWeight: '400',
   },
   trustBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
   },
   trustText: {
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '600',
-    color: THEME.colors.safeGreen,
+    color: THEME.colors.success,
   },
 });
-

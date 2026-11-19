@@ -1,77 +1,86 @@
 export const THEME = {
   colors: {
-    // Taobao Brand Palette
-    primary: '#FF5000',          // Iconic Taobao Vibrant Orange
-    primaryDark: '#E04700',
-    primaryLight: '#FF7A33',
-    primaryTint: '#FFF1EB',      // Soft background for chips & badges
+    // Official Design Palette
+    primary: '#FF6B00',          // Primary Orange
+    primaryDark: '#E05E00',
+    primaryLight: '#FF8533',
+    primaryTint: '#FFF7ED',      // Soft peach background for chips & badges
 
-    // Central Safe-Hold / Escrow Colors
-    safeGreen: '#00B578',        // Central Safe-Hold Active Green
-    safeGreenLight: '#E8F8F2',
-    safeGreenDark: '#028A5B',
+    // Status Colors
+    success: '#16A34A',          // Success Green (Verified safe-trade, positive)
+    safeGreen: '#16A34A',
+    safeGreenLight: '#DCFCE7',
+    safeGreenDark: '#15803D',
+    info: '#3B82F6',             // Info Blue
+    infoLight: '#EFF6FF',
+    alertRed: '#EF4444',         // Alert Red
+    alertRedLight: '#FEE2E2',
+    vipGold: '#F59E0B',          // VIP Gold
+    vipGoldLight: '#FEF3C7',
 
-    // Alert & Urgency Colors
-    alertRed: '#FF0036',         // Tmall / Alert Red (Urgent alerts & reports)
-    alertRedLight: '#FDE8E8',
-
-    // VIP & Verification Gold
-    vipGold: '#E2B35B',          // Verified badge, 5-star ratings
-    vipGoldLight: '#FEF9E7',
-
-    // Neutral Surfaces & Text
-    canvasBg: '#F4F5F7',         // Cool slate off-white canvas
-    surface: '#FFFFFF',          // Pure white card background
+    // Surfaces & Backgrounds
+    background: '#F8FAFC',       // Clean slate light background
+    canvasBg: '#F8FAFC',
+    card: '#FFFFFF',             // Pure white card background
+    surface: '#FFFFFF',
     surfaceElevated: '#FFFFFF',
 
-    textPrimary: '#111111',      // High contrast product titles
-    textSecondary: '#666666',    // Specifications & store names
-    textMuted: '#999999',        // Sales volume, placeholder text
-    borderSubtle: '#EEEEEE',     // Hairline dividers (0.5px / 1px)
-    borderMedium: '#DDDDDD',
+    // Typography
+    textPrimary: '#0F172A',      // Text Dark (#0F172A)
+    textDark: '#0F172A',
+    textSecondary: '#64748B',    // Text Secondary (#64748B)
+    textMuted: '#94A3B8',        // Slate 400
+    borderSubtle: '#E2E8F0',     // Slate 200
+    borderMedium: '#CBD5E1',
 
     // Trade Stage Banners
-    stage1Gray: '#6B7280',
-    stage1GrayBg: '#F3F4F6',
-    stage2Green: '#03543F',
-    stage2GreenBg: '#DEF7EC',
-    stage3Blue: '#1E429F',
-    stage3BlueBg: '#E1EFFE',
-    stage3Yellow: '#713F12',
-    stage3YellowBg: '#FEF08A',
-    stage4Red: '#9B1C1C',
-    stage4RedBg: '#FDE8E8',
+    stage1Gray: '#64748B',
+    stage1GrayBg: '#F1F5F9',
+    stage2Green: '#16A34A',
+    stage2GreenBg: '#DCFCE7',
+    stage3Blue: '#3B82F6',
+    stage3BlueBg: '#EFF6FF',
+    stage3Yellow: '#D97706',
+    stage3YellowBg: '#FEF3C7',
+    stage4Red: '#DC2626',
+    stage4RedBg: '#FEE2E2',
+  },
+  typography: {
+    heading1: { fontSize: 22, fontWeight: '600' as const },
+    heading2: { fontSize: 16, fontWeight: '600' as const },
+    body: { fontSize: 14, fontWeight: '400' as const },
+    caption: { fontSize: 12, fontWeight: '400' as const },
   },
   borderRadius: {
-    xs: 4,
+    xs: 6,
     sm: 8,
     md: 12,
     lg: 16,
-    xl: 24,
+    xl: 20,
+    xxl: 24,
     pill: 9999,
   },
   shadows: {
     card: {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.05,
-      shadowRadius: 3,
+      shadowColor: '#0F172A',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.04,
+      shadowRadius: 6,
       elevation: 2,
     },
     hover: {
-      shadowColor: '#FF5000',
+      shadowColor: '#FF6B00',
       shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.12,
-      shadowRadius: 8,
+      shadowOpacity: 0.15,
+      shadowRadius: 10,
       elevation: 4,
     },
     float: {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.15,
-      shadowRadius: 12,
-      elevation: 8,
+      shadowColor: '#0F172A',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.08,
+      shadowRadius: 14,
+      elevation: 6,
     },
   },
 };
-

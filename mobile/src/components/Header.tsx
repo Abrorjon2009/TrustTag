@@ -46,7 +46,7 @@ export const Header: React.FC<HeaderProps> = ({
           </View>
           <View>
             <Text style={styles.brandTitle}>SafeTrade</Text>
-            <Text style={styles.brandSubtitle}>Central Safe-Hold</Text>
+            <Text style={styles.brandSubtitle}>Central Asia's Marketplace</Text>
           </View>
         </View>
 
@@ -59,15 +59,15 @@ export const Header: React.FC<HeaderProps> = ({
           <Ionicons name="chevron-down" size={11} color={THEME.colors.textSecondary} />
         </TouchableOpacity>
 
-        {/* Right Action Icons: Notification Bell & User Account / Login */}
+        {/* Right Action Icons: Notification Bell, Wallet & User Account / Login */}
         <View style={styles.actionsRight}>
           <TouchableOpacity style={styles.iconButton} onPress={onOpenNotifications}>
-            <Ionicons name="notifications-outline" size={20} color={THEME.colors.textPrimary} />
-            {unreadCount > 0 && (
-              <View style={styles.bellBadge}>
-                <Text style={styles.bellBadgeText}>{unreadCount}</Text>
-              </View>
-            )}
+            <Ionicons name="notifications-outline" size={20} color={THEME.colors.textDark} />
+            {unreadCount > 0 && <View style={styles.bellBadge} />}
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.iconButton} onPress={onOpenWallet}>
+            <Ionicons name="wallet-outline" size={20} color={THEME.colors.textDark} />
           </TouchableOpacity>
 
           {currentUser?.isAdmin && (
@@ -227,11 +227,11 @@ export const Header: React.FC<HeaderProps> = ({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     paddingTop: 10,
     paddingBottom: 8,
     borderBottomWidth: 1,
-    borderBottomColor: THEME.colors.borderSubtle,
+    borderBottomColor: '#F1F5F9',
   },
   topRow: {
     flexDirection: 'row',
@@ -243,38 +243,45 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   logoBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
+    width: 38,
+    height: 38,
+    borderRadius: 12,
     backgroundColor: THEME.colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 8,
+    shadowColor: THEME.colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 2,
   },
   brandTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: THEME.colors.textPrimary,
+    fontSize: 17,
+    fontWeight: '700',
+    color: THEME.colors.textDark,
     letterSpacing: -0.3,
   },
   brandSubtitle: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: THEME.colors.primary,
+    fontSize: 11,
+    fontWeight: '500',
+    color: THEME.colors.textSecondary,
   },
   locationPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: THEME.colors.primaryTint,
-    paddingHorizontal: 8,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: THEME.borderRadius.pill,
     maxWidth: 130,
   },
   locationText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
-    color: THEME.colors.primary,
+    color: THEME.colors.textDark,
     marginHorizontal: 4,
   },
   actionsRight: {
@@ -283,27 +290,24 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   iconButton: {
-    padding: 6,
-    borderRadius: THEME.borderRadius.pill,
-    backgroundColor: THEME.colors.canvasBg,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    justifyContent: 'center',
+    alignItems: 'center',
     position: 'relative',
   },
   bellBadge: {
     position: 'absolute',
-    top: -2,
-    right: -2,
+    top: 7,
+    right: 7,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
     backgroundColor: THEME.colors.alertRed,
-    borderRadius: 8,
-    minWidth: 16,
-    height: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 2,
-  },
-  bellBadgeText: {
-    color: '#FFF',
-    fontSize: 9,
-    fontWeight: '800',
   },
   adminBadge: {
     flexDirection: 'row',
