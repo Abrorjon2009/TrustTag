@@ -4,6 +4,9 @@ import * as AuthSession from 'expo-auth-session';
 
 const STORAGE_KEY_CLIENT_ID = 'trusttag_google_client_id';
 
+export const DEFAULT_GOOGLE_CLIENT_ID =
+  '461281975078-b6s2ucu083pe98fi2ls5dghikenc8egd.apps.googleusercontent.com';
+
 // Default / fallback Google Client ID if configured via EXPO_PUBLIC_GOOGLE_CLIENT_ID
 export function getSavedGoogleClientId(): string {
   if (process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID && process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID.trim()) {
@@ -13,7 +16,7 @@ export function getSavedGoogleClientId(): string {
     const saved = localStorage.getItem(STORAGE_KEY_CLIENT_ID);
     if (saved && saved.trim()) return saved.trim();
   }
-  return '';
+  return DEFAULT_GOOGLE_CLIENT_ID;
 }
 
 export function saveGoogleClientId(clientId: string): void {
