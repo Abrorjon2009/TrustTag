@@ -134,7 +134,11 @@ export function startTelegramBotPolling(io?: any) {
     }
   };
 
-  poll().catch((err) => console.error('Telegram polling error:', err));
+  poll().catch((err) => {
+    console.error('Telegram polling error:', err);
+    isPolling = false;
+    setTimeout(() => startTelegramBotPolling(io), 3000);
+  });
 }
 
 /**
@@ -450,10 +454,10 @@ async function handleTelegramUpdate(update: any, token: string, io?: any) {
     return;
   }
 
-  // 5. Default welcome when no session is waiting and just "/start"
-  if (text === '/start') {
+  // 5. Default welcome when no session is waiting and user sends /start or any message
+  if (text) {
     const ackId = await sendInstantAck();
-    const welcome = `Assalomu alaykum! 🛡️ <b>TrustTag Xavfsiz Savdo</b> platformasining rasmiy autentifikatsiya botiga xush kelibsiz.\n\nPlatformada 1 bosishda kirish yoki ro'yxatdan o'tish uchun sayt yoki ilovadan ushbu botga o'ting.`;
+    const welcome = `Assalomu alaykum! 🛡️ <b>TrustTag Xavfsiz Savdo</b> platformasining rasmiy autentifikatsiya botiga xush kelibsiz.\n\nPlatformada 1 bosishda kirish yoki ro'yxatdan o'tish uchun ilovadan ushbu botga o'ting.`;
     await sendOrEditReply(ackId, welcome, { remove_keyboard: true });
   }
 }
