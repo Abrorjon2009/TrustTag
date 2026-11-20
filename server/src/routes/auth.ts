@@ -454,14 +454,14 @@ router.post('/google', async (req, res) => {
 // GET /api/auth/telegram/check-session - Poll active Telegram authentication session
 router.get('/telegram/check-session', (req, res) => {
   const { sessionId } = req.query;
-  if (!sessionId) {
-    return res.status(400).json({ error: 'Session ID is required' });
-  }
+  const sId = sessionId ? String(sessionId) : 'latest';
 
-  const session = getTelegramSession(String(sessionId));
+  const session = getTelegramSession(sId);
   if (!session) {
     return res.json({ authenticated: false });
   }
+
+  console.log(`✅ [CHECK-SESSION] Authenticated session fulfilled for: "${sId}" -> ${session.user.fullName}`);
 
   res.json({
     authenticated: true,

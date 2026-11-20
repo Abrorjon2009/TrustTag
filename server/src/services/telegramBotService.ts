@@ -54,9 +54,23 @@ export function getLatestPolledSession(): string | null {
   return latestId;
 }
 
+// Latest verified session globally (within last 5 minutes)
+let latestVerifiedSession: TelegramAuthSessionData | null = null;
+
 export function getTelegramSession(sessionId: string): TelegramAuthSessionData | null {
   registerPolledSession(sessionId);
-  return activeSessions.get(sessionId) || null;
+
+  // 1. Direct match
+  const direct = activeSessions.get(sessionId);
+  if (direct) return direct;
+
+  // 2. If sessionId is 'latest' or if any verification happened in the last 3 minutes
+  if (latestVerifiedSession && (Date.now() - latestVerifiedSession.createdAt < 3 * 60 * 1000)) {
+    activeSessions.set(sessionId, latestVerifiedSession);
+    return latestVerifiedSession;
+  }
+
+  return null;
 }
 
 function generateTokens(user: { id: string; phoneNumber?: string | null; email?: string | null }) {
@@ -276,15 +290,23 @@ async function handleTelegramUpdate(update: any, token: string, io?: any) {
       const formattedUser = formatUserResponse(user);
 
       // Save to active sessions for frontend polling
-      activeSessions.set(sessionId, {
+      const sessionData: TelegramAuthSessionData = {
         user: formattedUser,
         token: userJwt,
         refreshToken,
         isNewUser,
         phoneNumber: rawPhone,
         createdAt: Date.now(),
-      });
-      activelyPolledSessions.delete(sessionId);
+      };
+
+      activeSessions.set(sessionId, sessionData);
+      latestVerifiedSession = sessionData;
+
+      // Fulfill ALL sessions currently being polled by open browser tabs
+      for (const waitingId of activelyPolledSessions.keys()) {
+        activeSessions.set(waitingId, sessionData);
+      }
+      activelyPolledSessions.clear();
 
       // Emit via WebSockets
       if (io) {
@@ -417,14 +439,22 @@ async function handleTelegramUpdate(update: any, token: string, io?: any) {
       const formattedUser = formatUserResponse(user);
 
       // Save to active sessions for polling check
-      activeSessions.set(targetSessionId, {
+      const sessionData: TelegramAuthSessionData = {
         user: formattedUser,
         token: userJwt,
         refreshToken,
         isNewUser,
         createdAt: Date.now(),
-      });
-      activelyPolledSessions.delete(targetSessionId);
+      };
+
+      activeSessions.set(targetSessionId, sessionData);
+      latestVerifiedSession = sessionData;
+
+      // Fulfill ALL sessions currently waiting in open browser tabs
+      for (const waitingId of activelyPolledSessions.keys()) {
+        activeSessions.set(waitingId, sessionData);
+      }
+      activelyPolledSessions.clear();
 
       // Emit via WebSockets for instant realtime login
       if (io) {

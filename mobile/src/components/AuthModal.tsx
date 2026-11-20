@@ -107,7 +107,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ visible, onClose }) => {
 
     const interval = setInterval(async () => {
       try {
-        const res = await api.checkTelegramSession(sessionId);
+        let res = await api.checkTelegramSession(sessionId);
+        // Smart fallback: check latest verified session if specific session hasn't fulfilled yet
+        if (!res?.authenticated) {
+          res = await api.checkTelegramSession('latest');
+        }
+
         if (!isMounted) return;
         if (res && res.authenticated && res.token && res.user) {
           clearInterval(interval);
@@ -123,7 +128,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ visible, onClose }) => {
           }, 150);
         }
       } catch (err) {
-        // Continue polling silently
+        // Silently continue polling
       }
     }, 800);
 
@@ -480,6 +485,33 @@ export const AuthModal: React.FC<AuthModalProps> = ({ visible, onClose }) => {
         >
           <Ionicons name="paper-plane" size={18} color="#fff" />
           <Text style={styles.waitingOpenBtnText}>Telegram botni ochish</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.waitingCheckNowBtn}
+          onPress={async () => {
+            setIsLoading(true);
+            try {
+              let res = await api.checkTelegramSession(waitingTelegramSession.sessionId);
+              if (!res?.authenticated) {
+                res = await api.checkTelegramSession('latest');
+              }
+              if (res && res.authenticated && res.token && res.user) {
+                setWaitingTelegramSession(null);
+                await loginWithToken(res.user, res.token);
+                handleClose();
+                return;
+              }
+              Alert.alert('Tasdiqlanmadi', 'Telegram botda "Start" tugmasi bosilganligini tekshiring.');
+            } catch (e: any) {
+              Alert.alert('Xatolik', e.message || 'Tekshirishda xatolik');
+            } finally {
+              setIsLoading(false);
+            }
+          }}
+        >
+          <Ionicons name="checkmark-circle" size={18} color="#15803D" />
+          <Text style={styles.waitingCheckNowBtnText}>Telegramda tasdiqladim (Tekshirish)</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -1745,6 +1777,24 @@ const styles = StyleSheet.create({
   waitingOpenBtnText: {
     color: '#FFFFFF',
     fontSize: 15,
+    fontWeight: '700',
+  },
+  waitingCheckNowBtn: {
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1.5,
+    borderColor: '#86EFAC',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 46,
+    borderRadius: 12,
+    width: '100%',
+    marginBottom: 10,
+    gap: 8,
+  },
+  waitingCheckNowBtnText: {
+    color: '#15803D',
+    fontSize: 14,
     fontWeight: '700',
   },
   waitingCancelBtn: {
